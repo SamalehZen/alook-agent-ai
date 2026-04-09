@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Logger } from "./logger";
 
-let stdoutSpy: ReturnType<typeof vi.spyOn>;
-let stderrSpy: ReturnType<typeof vi.spyOn>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let stdoutSpy: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let stderrSpy: any;
 
 beforeEach(() => {
   stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
@@ -13,7 +15,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function parseLine(spy: ReturnType<typeof vi.spyOn>): Record<string, unknown> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseLine(spy: any): Record<string, unknown> {
   const raw = spy.mock.calls[0][0] as string;
   return JSON.parse(raw);
 }

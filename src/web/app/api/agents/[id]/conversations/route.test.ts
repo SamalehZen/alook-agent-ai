@@ -50,7 +50,7 @@ describe("GET /api/agents/[id]/conversations", () => {
   });
 
   it("returns 404 for non-existent agent", async () => {
-    mockGetAgent.mockResolvedValue(null);
+    mockGetAgent.mockResolvedValue(null as any);
     const { GET } = await import("./route");
     const res = await GET(
       new NextRequest("http://localhost/api/agents/nope/conversations"),

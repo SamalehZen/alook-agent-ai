@@ -57,7 +57,7 @@ describe("POST /api/conversations/[id]/messages", () => {
   it("sends message and enqueues task, returns 201", async () => {
     mockGetConv.mockResolvedValue({ id: "c1", workspaceId: "w1", agentId: "a1" } as any);
     mockCreateMessage.mockResolvedValue({ id: "m1" } as any);
-    mockUpdateTitle.mockResolvedValue(null);
+    mockUpdateTitle.mockResolvedValue(null as any);
     const { POST } = await import("./route");
     const res = await POST(
       new NextRequest("http://localhost/api/conversations/c1/messages?workspace_id=w1", {
@@ -100,7 +100,7 @@ describe("POST /api/conversations/[id]/messages", () => {
   it("auto-title does not fail if update returns null (title already set)", async () => {
     mockGetConv.mockResolvedValue({ id: "c1", workspaceId: "w1", agentId: "a1" } as any);
     mockCreateMessage.mockResolvedValue({ id: "m1" } as any);
-    mockUpdateTitle.mockResolvedValue(null); // title already set
+    mockUpdateTitle.mockResolvedValue(null as any); // title already set
     const { POST } = await import("./route");
     const res = await POST(
       new NextRequest("http://localhost/api/conversations/c1/messages?workspace_id=w1", {

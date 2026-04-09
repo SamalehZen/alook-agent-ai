@@ -53,7 +53,7 @@ describe("POST /api/daemon/heartbeat", () => {
   it("returns 404 when runtime not in caller's workspace", async () => {
     setupMocks();
     const { getAgentRuntimeForWorkspace } = await import("@/lib/db/queries/runtime");
-    vi.mocked(getAgentRuntimeForWorkspace).mockResolvedValue(null);
+    vi.mocked(getAgentRuntimeForWorkspace).mockResolvedValue(null as any);
 
     const { POST } = await import("./route");
     const res = await POST(makeReq({ runtime_id: "rt-other" }));
@@ -63,7 +63,7 @@ describe("POST /api/daemon/heartbeat", () => {
   it("returns 404 when runtime ID doesn't exist at all", async () => {
     setupMocks();
     const { getAgentRuntimeForWorkspace } = await import("@/lib/db/queries/runtime");
-    vi.mocked(getAgentRuntimeForWorkspace).mockResolvedValue(null);
+    vi.mocked(getAgentRuntimeForWorkspace).mockResolvedValue(null as any);
 
     const { POST } = await import("./route");
     const res = await POST(makeReq({ runtime_id: "nonexistent" }));
@@ -82,7 +82,7 @@ describe("POST /api/daemon/heartbeat", () => {
     const { getAgentRuntimeForWorkspace, updateAgentRuntimeHeartbeat, markStaleRuntimesOffline } =
       await import("@/lib/db/queries/runtime");
     const { failStaleDispatchedTasks } = await import("@/lib/db/queries/task");
-    vi.mocked(getAgentRuntimeForWorkspace).mockResolvedValue(null);
+    vi.mocked(getAgentRuntimeForWorkspace).mockResolvedValue(null as any);
 
     const { POST } = await import("./route");
     await POST(makeReq({ runtime_id: "rt-other" }));

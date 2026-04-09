@@ -1,4 +1,4 @@
-.PHONY: setup start stop build test typecheck check daemon cli migrate-up migrate-down db-up db-down
+.PHONY: setup start stop build test test-unit test-integration typecheck check daemon cli migrate-up migrate-down db-up db-down
 
 setup: ## First-time setup
 	pnpm install
@@ -22,12 +22,18 @@ build: ## Build Next.js + CLI
 	cd src/web && pnpm build
 	cd src/cli && pnpm build
 
-test: ## Run Vitest
+test-unit: ## Run unit tests only (no DB required)
 	pnpm vitest run
+
+test: test-unit test-integration ## Run all tests
 
 typecheck: ## TypeScript type check
 	pnpm tsc --noEmit -p src/web/tsconfig.json
 	pnpm tsc --noEmit -p src/cli/tsconfig.json
+
+test-integration: ## Run integration tests (requires PostgreSQL)
+	bash scripts/setup-test-db.sh
+	pnpm vitest run --config vitest.integration.config.ts
 
 check: typecheck build test ## CI gate
 

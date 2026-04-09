@@ -93,7 +93,7 @@ export async function startDaemon(
       runtimes,
     });
 
-    const runtimeIds = resp.runtimes.map((r) => r.id);
+    const runtimeIds = resp.runtimes.map((r: { id: string }) => r.id);
     workspaceStates.push({ workspaceId: ws.id, runtimeIds });
 
     for (let i = 0; i < runtimeIds.length; i++) {

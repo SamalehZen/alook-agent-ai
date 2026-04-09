@@ -5,8 +5,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
-    exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
+    include: ["src/**/*.integration.test.ts"],
+    pool: "forks",
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+    fileParallelism: false,
   },
   resolve: {
     alias: {
