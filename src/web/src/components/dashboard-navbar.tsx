@@ -21,7 +21,8 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Logo } from "@/components/logo";
 import { toast } from "sonner";
-import type { Runtime } from "@/lib/types";
+import type { Runtime } from "@/lib/api";
+import { signOut } from "@/lib/auth-client";
 
 function OnboardingSteps({
   generatedToken,
@@ -385,11 +386,8 @@ export function DashboardNavbar() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                localStorage.removeItem("alook_token");
-                localStorage.removeItem("alook_workspace_id");
-                document.cookie = "alook_session=; path=/; max-age=0";
-                router.push("/login");
+              onClick={async () => {
+                await signOut();
               }}
             >
               Sign Out

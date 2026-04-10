@@ -1,6 +1,6 @@
 "use client";
 
-import type { Runtime } from "@/lib/types";
+import type { Runtime } from "@/lib/api";
 import {
   Select,
   SelectTrigger,

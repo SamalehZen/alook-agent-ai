@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RuntimeSelect } from "@/components/runtime-select";
-import type { Agent, Runtime } from "@/lib/types";
+import type { Agent } from "@alook/shared";
+import type { Runtime } from "@/lib/api";
 
 interface AgentEditFormProps {
   agent?: Agent;
