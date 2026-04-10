@@ -4,6 +4,7 @@ import { printJSON, printTable } from "./output.js";
 let logSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
