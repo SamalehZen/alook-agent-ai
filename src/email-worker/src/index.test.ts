@@ -14,7 +14,7 @@ const mockGetUser = vi.fn()
 const mockCreateDb = vi.fn(() => ({}))
 
 vi.mock("@alook/shared", () => ({
-  createDb: (...args: unknown[]) => mockCreateDb(...args),
+  createDb: (...args: any[]) => mockCreateDb(...args),
   parseEmailHandle: (address: string) => {
     const domain = "@alook.ai"
     return address.endsWith(domain) ? address.slice(0, -domain.length) : ""
@@ -33,7 +33,7 @@ import handler from "./index"
 const AGENT = {
   id: "agent-1",
   workspaceId: "ws-1",
-  ownerId: "user-1",
+  ownerId: "user-1" as string | null,
   emailHandle: "jarvis",
   forwardToEmail: "",
   name: "Jarvis",
