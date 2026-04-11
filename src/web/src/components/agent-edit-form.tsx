@@ -7,7 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RuntimeSelect } from "@/components/runtime-select";
 import type { Agent } from "@alook/shared";
+import { isValidHandle } from "@alook/shared";
 import type { Runtime } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+function nameToHandle(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 interface AgentEditFormProps {
   agent?: Agent;
@@ -18,6 +28,7 @@ interface AgentEditFormProps {
     description: string;
     instructions: string;
     runtime_id: string;
+    email_handle?: string;
   }) => Promise<boolean>;
   onCancel: () => void;
   saving: boolean;
@@ -41,6 +52,14 @@ export function AgentEditForm({
   const [runtimeId, setRuntimeId] = useState(
     agent?.runtime_id ?? defaultRuntimeId
   );
+  const [emailHandle, setEmailHandle] = useState(agent?.email_handle ?? "");
+
+  const derivedHandle = nameToHandle(name);
+  const effectiveHandle = emailHandle || derivedHandle;
+  const handleError =
+    effectiveHandle && !isValidHandle(effectiveHandle)
+      ? "Must be 4+ characters, letters/numbers/hyphens only"
+      : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +68,7 @@ export function AgentEditForm({
       description,
       instructions,
       runtime_id: runtimeId,
+      email_handle: emailHandle || derivedHandle || undefined,
     });
   };
 
@@ -74,6 +94,30 @@ export function AgentEditForm({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What does this agent do?"
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="agent-handle">Email Handle</Label>
+          <div className="flex items-center gap-0">
+            <Input
+              id="agent-handle"
+              value={emailHandle}
+              onChange={(e) => setEmailHandle(e.target.value.toLowerCase())}
+              placeholder={derivedHandle || "my-agent"}
+              className="rounded-r-none"
+            />
+            <span className="inline-flex h-8 items-center rounded-r-lg border border-l-0 border-input bg-muted px-2.5 text-sm text-muted-foreground">
+              @alook.ai
+            </span>
+          </div>
+          {effectiveHandle && (
+            <p className={cn(
+              "text-xs",
+              handleError ? "text-destructive" : "text-muted-foreground"
+            )}>
+              {handleError || `${effectiveHandle}@alook.ai`}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -108,7 +152,7 @@ export function AgentEditForm({
           <Button
             type="submit"
             size="sm"
-            disabled={saving || !name}
+            disabled={saving || !name || !!handleError}
           >
             {saving ? savingLabel : submitLabel}
           </Button>

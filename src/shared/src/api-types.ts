@@ -56,6 +56,7 @@ export interface UpdateAgentRequest {
   instructions?: string;
   runtime_config?: Record<string, unknown>;
   max_concurrent_tasks?: number;
+  email_handle?: string;
 }
 
 export interface SendMessageRequest {
