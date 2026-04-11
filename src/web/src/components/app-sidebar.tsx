@@ -36,14 +36,16 @@ export function AppSidebar() {
     <nav className="flex h-full w-14 flex-col items-center py-2 gap-0.5">
       {/* Top — logo */}
       <div className="pb-2 border-b border-border/50 mb-1">
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           title="Home"
           onClick={() => router.push(`${prefix}/home`)}
+          onKeyDown={(e) => { if (e.key === "Enter") router.push(`${prefix}/home`); }}
           className="flex shrink-0 items-center justify-center size-10 cursor-pointer transition-opacity hover:opacity-70"
         >
           <Logo size="sm" iconOnly />
-        </button>
+        </div>
       </div>
 
       {/* Agent avatars */}

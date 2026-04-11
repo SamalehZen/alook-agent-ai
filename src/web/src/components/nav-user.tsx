@@ -46,24 +46,26 @@ export function NavUser() {
         align="end"
         sideOffset={8}
       >
-        <DropdownMenuLabel className="p-0 font-normal">
-          <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
-            <Avatar className="size-7">
-              {user.image && (
-                <AvatarImage src={user.image} alt={user.name ?? ""} />
-              )}
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">
-                {user.name ?? "User"}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {user.email}
-              </span>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="p-0 font-normal">
+            <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
+              <Avatar className="size-7">
+                {user.image && (
+                  <AvatarImage src={user.image} alt={user.name ?? ""} />
+                )}
+                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">
+                  {user.name ?? "User"}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {user.email}
+                </span>
+              </div>
             </div>
-          </div>
-        </DropdownMenuLabel>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem
