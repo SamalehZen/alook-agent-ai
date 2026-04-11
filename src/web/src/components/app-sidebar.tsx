@@ -34,8 +34,8 @@ export function AppSidebar() {
 
   return (
     <nav className="flex h-full w-14 flex-col items-center py-2 gap-0.5">
-      {/* Top — logo + theme toggle */}
-      <div className="flex flex-col items-center gap-1 pb-2 border-b border-border/50 mb-1">
+      {/* Top — logo */}
+      <div className="pb-2 border-b border-border/50 mb-1">
         <button
           type="button"
           title="Home"
@@ -43,26 +43,6 @@ export function AppSidebar() {
           className="flex shrink-0 items-center justify-center size-10 cursor-pointer transition-opacity hover:opacity-70"
         >
           <Logo size="sm" iconOnly />
-        </button>
-        <button
-          type="button"
-          title="Toggle theme"
-          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          className="flex items-center justify-center size-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200 cursor-pointer"
-        >
-          <SunMoon className="size-4" />
-        </button>
-        <button
-          type="button"
-          title="Runtimes"
-          onClick={() => router.push(`${prefix}/runtimes`)}
-          className={cn(
-            "flex items-center justify-center size-10 rounded-xl transition-colors duration-200 cursor-pointer",
-            "text-muted-foreground hover:text-foreground hover:bg-accent",
-            isRuntimes && "bg-accent text-foreground"
-          )}
-        >
-          <Monitor className="size-4" />
         </button>
       </div>
 
@@ -120,6 +100,28 @@ export function AppSidebar() {
           className="flex items-center justify-center size-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200 cursor-pointer"
         >
           <LayoutGrid className="size-4" />
+        </button>
+
+        <button
+          type="button"
+          title="Runtimes"
+          onClick={() => router.push(`${prefix}/runtimes`)}
+          className={cn(
+            "flex items-center justify-center size-10 rounded-xl transition-colors duration-200 cursor-pointer",
+            "text-muted-foreground hover:text-foreground hover:bg-accent",
+            isRuntimes && "bg-accent text-foreground"
+          )}
+        >
+          <Monitor className="size-4" />
+        </button>
+
+        <button
+          type="button"
+          title="Toggle theme"
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+          className="flex items-center justify-center size-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200 cursor-pointer"
+        >
+          <SunMoon className="size-4" />
         </button>
 
         <NavUser />
