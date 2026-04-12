@@ -9,18 +9,22 @@ const mockListWorkspaces = vi.fn();
 const mockCreateWorkspace = vi.fn();
 const mockCreateMember = vi.fn();
 
-vi.mock("@alook/shared", () => ({
-  createDb: vi.fn(() => ({})),
-  queries: {
-    workspace: {
-      listWorkspaces: (...args: unknown[]) => mockListWorkspaces(...args),
-      createWorkspace: (...args: unknown[]) => mockCreateWorkspace(...args),
+vi.mock("@alook/shared", async () => {
+  const actual = await vi.importActual("@alook/shared");
+  return {
+    ...actual,
+    createDb: vi.fn(() => ({})),
+    queries: {
+      workspace: {
+        listWorkspaces: (...args: unknown[]) => mockListWorkspaces(...args),
+        createWorkspace: (...args: unknown[]) => mockCreateWorkspace(...args),
+      },
+      member: {
+        createMember: (...args: unknown[]) => mockCreateMember(...args),
+      },
     },
-    member: {
-      createMember: (...args: unknown[]) => mockCreateMember(...args),
-    },
-  },
-}));
+  };
+});
 
 vi.mock("@/lib/middleware/auth", () => ({
   withAuth: vi.fn((handler: any) => async (req: any, ctx?: any) => {
@@ -114,6 +118,23 @@ describe("POST /api/workspaces", () => {
 
   it("returns 409 on duplicate slug", async () => {
     mockCreateWorkspace.mockRejectedValue(new Error("UNIQUE constraint failed: workspaces.slug"));
+
+    const req = new NextRequest("http://localhost/api/workspaces", {
+      method: "POST",
+      body: JSON.stringify({ name: "Dup", slug: "dup" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req, {} as any);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "workspace slug already exists" });
+  });
+
+  it("returns 409 on duplicate slug wrapped with cause", async () => {
+    const cause = new Error("UNIQUE constraint failed: workspaces.slug");
+    const wrapped = new Error("Failed query: INSERT INTO ...");
+    (wrapped as any).cause = cause;
+    mockCreateWorkspace.mockRejectedValue(wrapped);
 
     const req = new NextRequest("http://localhost/api/workspaces", {
       method: "POST",

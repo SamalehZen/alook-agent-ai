@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare"
-import { createDb, queries } from "@alook/shared"
+import { createDb, queries, isUniqueConstraintError } from "@alook/shared"
 import { withAuth } from "@/lib/middleware/auth";
 import { writeJSON, writeError } from "@/lib/middleware/helpers";
 import { workspaceToResponse } from "@/lib/api/responses";
@@ -43,9 +43,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     });
     return writeJSON(workspaceToResponse(ws), 201);
   } catch (err: unknown) {
-    const e = err as Record<string, unknown>;
-    // SQLite unique constraint violation code
-    if (e.code === "SQLITE_CONSTRAINT_UNIQUE" || (typeof e.message === "string" && e.message.includes("UNIQUE"))) {
+    if (isUniqueConstraintError(err)) {
       return writeError("workspace slug already exists", 409);
     }
     throw err;
