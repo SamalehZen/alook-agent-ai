@@ -6,6 +6,7 @@ import { loadDaemonConfig, normalizeServerBaseURL } from "./config.js";
 
 const DAEMON_ENV_KEYS = [
   "ALOOK_SERVER_URL",
+  "ALOOK_PROJECT_ROOT",
   "ALOOK_DAEMON_POLL_INTERVAL",
   "ALOOK_DAEMON_HEARTBEAT_INTERVAL",
   "ALOOK_AGENT_TIMEOUT",
@@ -33,7 +34,7 @@ describe("loadDaemonConfig defaults", () => {
   it("returns correct defaults when no env vars set", () => {
     const cfg = loadDaemonConfig();
 
-    expect(cfg.serverURL).toBe("http://localhost:8080");
+    expect(cfg.serverURL).toBe("https://alook.ai");
     expect(cfg.pollInterval).toBe(3000);
     expect(cfg.heartbeatInterval).toBe(15000);
     expect(cfg.agentTimeout).toBe(7200000);
@@ -105,15 +106,32 @@ describe("daemonId profile suffix", () => {
 });
 
 describe("workspacesRoot profile handling", () => {
-  it("defaults to ~/alook_workspaces without profile", () => {
+  it("defaults to ~/alook_workspaces without profile in production", () => {
     const cfg = loadDaemonConfig();
     expect(cfg.workspacesRoot).toBe(join(homedir(), "alook_workspaces"));
   });
 
-  it("uses ~/alook_workspaces_{profile} with profile", () => {
+  it("uses ~/alook_workspaces_{profile} with profile in production", () => {
     const cfg = loadDaemonConfig("dev");
     expect(cfg.workspacesRoot).toBe(
       join(homedir(), "alook_workspaces_dev"),
     );
+  });
+
+  it("defaults to <project-root>/.alook/workspaces in dev mode", () => {
+    process.env.ALOOK_SERVER_URL = "http://localhost:3000";
+    process.env.ALOOK_PROJECT_ROOT = "/tmp/my-project";
+    const cfg = loadDaemonConfig();
+    expect(cfg.workspacesRoot).toBe(
+      join("/tmp/my-project", ".alook", "workspaces"),
+    );
+  });
+
+  it("ALOOK_WORKSPACES_ROOT overrides dev mode default", () => {
+    process.env.ALOOK_SERVER_URL = "http://localhost:3000";
+    process.env.ALOOK_PROJECT_ROOT = "/tmp/my-project";
+    process.env.ALOOK_WORKSPACES_ROOT = "/custom/path";
+    const cfg = loadDaemonConfig();
+    expect(cfg.workspacesRoot).toBe("/custom/path");
   });
 });

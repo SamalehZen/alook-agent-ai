@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "esnext",
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "outDir": "dist",
-    "rootDir": "."
+    "types": ["bun"]
   },
-  "include": ["src/**/*.ts", "commands/**/*.ts", "lib/**/*.ts"],
-  "references": [{ "path": "../shared" }]
+  "include": ["src", "commands", "daemon", "lib"],
+  "exclude": ["**/__tests__", "**/*.test.ts"]
 }

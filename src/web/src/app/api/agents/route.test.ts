@@ -1,0 +1,160 @@
+import { NextRequest } from "next/server";
+
+vi.mock("@opennextjs/cloudflare", () => ({
+  getCloudflareContext: vi.fn(() => ({ env: { DB: {} } })),
+}));
+
+const mockListAgents = vi.fn();
+const mockCreateAgent = vi.fn();
+const mockGetAgentInWorkspace = vi.fn();
+const mockGetAgentRuntimeForWorkspace = vi.fn();
+
+vi.mock("@alook/shared", () => ({
+  createDb: vi.fn(() => ({})),
+  queries: {
+    agent: {
+      listAgents: (...args: unknown[]) => mockListAgents(...args),
+      createAgent: (...args: unknown[]) => mockCreateAgent(...args),
+      getAgentInWorkspace: (...args: unknown[]) => mockGetAgentInWorkspace(...args),
+    },
+    runtime: {
+      getAgentRuntimeForWorkspace: (...args: unknown[]) => mockGetAgentRuntimeForWorkspace(...args),
+    },
+  },
+}));
+
+vi.mock("@/lib/middleware/auth", () => ({
+  withAuth: vi.fn((handler: any) => async (req: any, ctx?: any) => {
+    const params = ctx?.params instanceof Promise ? await ctx.params : ctx?.params;
+    return handler(req, { userId: "u1", email: "u@t.com", params });
+  }),
+}));
+
+vi.mock("@/lib/middleware/workspace", () => ({
+  withWorkspaceMember: vi.fn(async () => ({ workspaceId: "w1" })),
+}));
+
+vi.mock("@/lib/api/responses", () => ({
+  agentToResponse: vi.fn((a: any) => ({ id: a.id, name: a.name })),
+}));
+
+const mockReconcileAgentStatus = vi.fn();
+vi.mock("@/lib/services/task", () => {
+  const Svc = function () {
+    return { reconcileAgentStatus: mockReconcileAgentStatus };
+  };
+  return { TaskService: Svc };
+});
+
+import { GET, POST } from "./route";
+
+beforeEach(() => vi.clearAllMocks());
+
+describe("GET /api/agents", () => {
+  it("lists agents in workspace", async () => {
+    mockListAgents.mockResolvedValue([
+      { id: "a1", name: "Agent 1" },
+      { id: "a2", name: "Agent 2" },
+    ]);
+
+    const req = new NextRequest("http://localhost/api/agents");
+    const res = await GET(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual([
+      { id: "a1", name: "Agent 1" },
+      { id: "a2", name: "Agent 2" },
+    ]);
+  });
+});
+
+describe("POST /api/agents", () => {
+  const validBody = { name: "New Agent", runtime_id: "r1" };
+
+  it("creates agent with valid input", async () => {
+    mockGetAgentRuntimeForWorkspace.mockResolvedValue({ status: "offline", runtimeMode: "local" });
+    mockCreateAgent.mockResolvedValue({ id: "a1", name: "New Agent" });
+
+    const req = new NextRequest("http://localhost/api/agents", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    });
+    const res = await POST(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body).toEqual({ id: "a1", name: "New Agent" });
+  });
+
+  it("returns 400 for missing name", async () => {
+    const req = new NextRequest("http://localhost/api/agents", {
+      method: "POST",
+      body: JSON.stringify({ runtime_id: "r1" }),
+    });
+    const res = await POST(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("name is required");
+  });
+
+  it("returns 400 for missing runtime_id", async () => {
+    const req = new NextRequest("http://localhost/api/agents", {
+      method: "POST",
+      body: JSON.stringify({ name: "Agent" }),
+    });
+    const res = await POST(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("runtime_id is required");
+  });
+
+  it("returns 404 when runtime not in workspace", async () => {
+    mockGetAgentRuntimeForWorkspace.mockResolvedValue(null);
+
+    const req = new NextRequest("http://localhost/api/agents", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    });
+    const res = await POST(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error).toBe("runtime not found in workspace");
+  });
+
+  it("creates agent with reconcile when runtime is online", async () => {
+    mockGetAgentRuntimeForWorkspace.mockResolvedValue({ status: "online", runtimeMode: "local" });
+    mockCreateAgent.mockResolvedValue({ id: "a1", name: "New Agent" });
+    mockGetAgentInWorkspace.mockResolvedValue({ id: "a1", name: "Reconciled Agent" });
+
+    const req = new NextRequest("http://localhost/api/agents", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    });
+    const res = await POST(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(mockReconcileAgentStatus).toHaveBeenCalledWith("a1");
+    expect(body).toEqual({ id: "a1", name: "Reconciled Agent" });
+  });
+
+  it("creates agent without reconcile when runtime is offline", async () => {
+    mockGetAgentRuntimeForWorkspace.mockResolvedValue({ status: "offline", runtimeMode: "local" });
+    mockCreateAgent.mockResolvedValue({ id: "a1", name: "New Agent" });
+
+    const req = new NextRequest("http://localhost/api/agents", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    });
+    const res = await POST(req, {});
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(mockReconcileAgentStatus).not.toHaveBeenCalled();
+    expect(body).toEqual({ id: "a1", name: "New Agent" });
+  });
+});

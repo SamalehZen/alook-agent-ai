@@ -1,0 +1,484 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+
+// ---------------------------------------------------------------------------
+// Cross-route body-validation tests for daemon endpoints.
+// Uses real Zod schemas (parseBody is NOT mocked) so we can assert that
+// invalid payloads are rejected before hitting any DB logic.
+// ---------------------------------------------------------------------------
+
+const daemonAuth = { userId: "u1", email: "u@t.com", workspaceId: "w1" };
+
+function baseMocks() {
+  return {
+    "@opennextjs/cloudflare": () => ({
+      getCloudflareContext: vi.fn(() => ({ env: { DB: {} } })),
+    }),
+    "@/lib/middleware/auth": () => ({
+      withAuth: vi.fn((handler: any) => async (req: any, ctx?: any) => {
+        const params =
+          ctx?.params instanceof Promise ? await ctx.params : ctx?.params;
+        return handler(req, { ...daemonAuth, params });
+      }),
+    }),
+    "@/lib/middleware/helpers": async () =>
+      await vi.importActual<typeof import("@/lib/middleware/helpers")>(
+        "@/lib/middleware/helpers"
+      ),
+    "@/lib/logger": () => ({
+      log: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    }),
+  };
+}
+
+function applyBase() {
+  const m = baseMocks();
+  vi.doMock("@opennextjs/cloudflare", m["@opennextjs/cloudflare"]);
+  vi.doMock("@/lib/middleware/auth", m["@/lib/middleware/auth"]);
+  vi.doMock("@/lib/middleware/helpers", m["@/lib/middleware/helpers"]);
+  vi.doMock("@/lib/logger", m["@/lib/logger"]);
+}
+
+function postReq(url: string, body: unknown) {
+  return new NextRequest(url, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function postRaw(url: string, raw: string) {
+  return new NextRequest(url, {
+    method: "POST",
+    body: raw,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+describe("daemon route body validation", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // -----------------------------------------------------------------------
+  // POST /daemon/register
+  // -----------------------------------------------------------------------
+
+  describe("POST /daemon/register", () => {
+    async function loadRegister() {
+      vi.resetModules();
+      applyBase();
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+          queries: {
+            member: {
+              getMemberByUserAndWorkspace: vi.fn().mockResolvedValue({ id: "m1" }),
+            },
+            runtime: {
+              upsertAgentRuntime: vi.fn().mockResolvedValue({ id: "rt1", workspaceId: "w1" }),
+            },
+          },
+        };
+      });
+      vi.doMock("@/lib/api/responses", () => ({
+        runtimeToResponse: (r: any) => r,
+      }));
+
+      return (await import("./register/route")).POST;
+    }
+
+    it("returns 400 when workspace_id is empty", async () => {
+      const POST = await loadRegister();
+      const res = await POST(
+        postReq("http://localhost/api/daemon/register", {
+          workspace_id: "",
+          daemon_id: "d1",
+          runtimes: [{ type: "claude" }],
+        })
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when runtimes is empty array", async () => {
+      const POST = await loadRegister();
+      const res = await POST(
+        postReq("http://localhost/api/daemon/register", {
+          workspace_id: "w1",
+          daemon_id: "d1",
+          runtimes: [],
+        })
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 on malformed JSON", async () => {
+      const POST = await loadRegister();
+      const res = await POST(
+        postRaw("http://localhost/api/daemon/register", "not json{{{")
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("invalid request body");
+    });
+
+    it("stores deviceInfo correctly", async () => {
+      const POST = await loadRegister();
+      const upsertMock = vi.fn().mockResolvedValue({
+        id: "rt1",
+        workspaceId: "w1",
+        deviceInfo: "MacBook Pro",
+      });
+
+      // Re-mock with a trackable upsert
+      vi.resetModules();
+      applyBase();
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+          queries: {
+            member: {
+              getMemberByUserAndWorkspace: vi.fn().mockResolvedValue({ id: "m1" }),
+            },
+            runtime: {
+              upsertAgentRuntime: upsertMock,
+            },
+          },
+        };
+      });
+      vi.doMock("@/lib/api/responses", () => ({
+        runtimeToResponse: (r: any) => r,
+      }));
+
+      const POST2 = (await import("./register/route")).POST;
+      await POST2(
+        postReq("http://localhost/api/daemon/register", {
+          workspace_id: "w1",
+          daemon_id: "d1",
+          device_name: "MacBook Pro",
+          runtimes: [{ type: "claude" }],
+        })
+      );
+
+      expect(upsertMock).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ deviceInfo: "MacBook Pro" })
+      );
+    });
+
+    it("stores version in metadata", async () => {
+      vi.resetModules();
+      applyBase();
+
+      const upsertMock = vi.fn().mockResolvedValue({
+        id: "rt1",
+        workspaceId: "w1",
+      });
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+          queries: {
+            member: {
+              getMemberByUserAndWorkspace: vi.fn().mockResolvedValue({ id: "m1" }),
+            },
+            runtime: {
+              upsertAgentRuntime: upsertMock,
+            },
+          },
+        };
+      });
+      vi.doMock("@/lib/api/responses", () => ({
+        runtimeToResponse: (r: any) => r,
+      }));
+
+      const POST = (await import("./register/route")).POST;
+      await POST(
+        postReq("http://localhost/api/daemon/register", {
+          workspace_id: "w1",
+          daemon_id: "d1",
+          cli_version: "0.5.1",
+          runtimes: [{ type: "claude", version: "3.5" }],
+        })
+      );
+
+      expect(upsertMock).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          metadata: expect.objectContaining({ version: "3.5" }),
+        })
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /daemon/heartbeat
+  // -----------------------------------------------------------------------
+
+  describe("POST /daemon/heartbeat", () => {
+    async function loadHeartbeat() {
+      vi.resetModules();
+      applyBase();
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+          queries: {
+            runtime: {
+              getAgentRuntimeForWorkspace: vi.fn().mockResolvedValue({ id: "rt1" }),
+              updateAgentRuntimeHeartbeat: vi.fn(),
+              markStaleRuntimesOffline: vi.fn(),
+            },
+            task: {
+              failStaleDispatchedTasks: vi.fn().mockResolvedValue([]),
+            },
+          },
+        };
+      });
+      vi.doMock("@/lib/services/task", () => ({
+        TaskService: vi.fn().mockImplementation(() => ({
+          reconcileAgentStatus: vi.fn(),
+        })),
+      }));
+
+      return (await import("./heartbeat/route")).POST;
+    }
+
+    it("returns 400 when runtime_id is empty", async () => {
+      const POST = await loadHeartbeat();
+      const res = await POST(
+        postReq("http://localhost/api/daemon/heartbeat", { runtime_id: "" })
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when runtime_id is missing", async () => {
+      const POST = await loadHeartbeat();
+      const res = await POST(
+        postReq("http://localhost/api/daemon/heartbeat", {})
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /daemon/deregister
+  // -----------------------------------------------------------------------
+
+  describe("POST /daemon/deregister", () => {
+    async function loadDeregister() {
+      vi.resetModules();
+      applyBase();
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+          queries: {
+            runtime: {
+              getAgentRuntimeForWorkspace: vi.fn().mockResolvedValue({ id: "rt1" }),
+              setAgentRuntimeOffline: vi.fn(),
+            },
+          },
+        };
+      });
+
+      return (await import("./deregister/route")).POST;
+    }
+
+    it("returns 400 when runtime_ids contains non-strings", async () => {
+      const POST = await loadDeregister();
+      const res = await POST(
+        postReq("http://localhost/api/daemon/deregister", {
+          runtime_ids: [123, true],
+        })
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 on malformed JSON", async () => {
+      const POST = await loadDeregister();
+      const res = await POST(
+        postRaw("http://localhost/api/daemon/deregister", "{{bad")
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("invalid request body");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /daemon/tasks/:taskId/complete
+  // -----------------------------------------------------------------------
+
+  describe("POST /daemon/tasks/:taskId/complete", () => {
+    async function loadComplete() {
+      vi.resetModules();
+      applyBase();
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+        };
+      });
+      vi.doMock("@/lib/services/task", () => ({
+        TaskService: vi.fn().mockImplementation(() => ({
+          completeTask: vi.fn().mockResolvedValue({
+            id: "t1",
+            agentId: "a1",
+            runtimeId: "rt1",
+            workspaceId: "w1",
+            conversationId: "c1",
+            prompt: "p",
+            status: "completed",
+            priority: 0,
+            dispatchedAt: null,
+            startedAt: null,
+            completedAt: null,
+            createdAt: new Date().toISOString(),
+          }),
+        })),
+      }));
+      vi.doMock("@/lib/api/responses", () => ({
+        taskToResponse: (t: any) => ({ id: t.id, status: t.status }),
+      }));
+
+      return (await import("./tasks/[taskId]/complete/route")).POST;
+    }
+
+    it("returns 400 on malformed JSON", async () => {
+      const POST = await loadComplete();
+      const res = await POST(
+        postRaw("http://localhost/api/daemon/tasks/t1/complete", "{bad}"),
+        { params: Promise.resolve({ taskId: "t1" }) }
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("invalid request body");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /daemon/tasks/:taskId/fail
+  // -----------------------------------------------------------------------
+
+  describe("POST /daemon/tasks/:taskId/fail", () => {
+    async function loadFail() {
+      vi.resetModules();
+      applyBase();
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+        };
+      });
+      vi.doMock("@/lib/services/task", () => ({
+        TaskService: vi.fn().mockImplementation(() => ({
+          failTask: vi.fn().mockResolvedValue({
+            id: "t1",
+            agentId: "a1",
+            runtimeId: "rt1",
+            workspaceId: "w1",
+            conversationId: "c1",
+            prompt: "p",
+            status: "failed",
+            priority: 0,
+            dispatchedAt: null,
+            startedAt: null,
+            completedAt: null,
+            createdAt: new Date().toISOString(),
+          }),
+        })),
+      }));
+      vi.doMock("@/lib/api/responses", () => ({
+        taskToResponse: (t: any) => ({ id: t.id, status: t.status }),
+      }));
+
+      return (await import("./tasks/[taskId]/fail/route")).POST;
+    }
+
+    it("returns 400 on malformed JSON", async () => {
+      const POST = await loadFail();
+      const res = await POST(
+        postRaw("http://localhost/api/daemon/tasks/t1/fail", "nope"),
+        { params: Promise.resolve({ taskId: "t1" }) }
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("invalid request body");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /daemon/tasks/:taskId/messages
+  // -----------------------------------------------------------------------
+
+  describe("POST /daemon/tasks/:taskId/messages", () => {
+    async function loadMessages() {
+      vi.resetModules();
+      applyBase();
+
+      vi.doMock("@alook/shared", async () => {
+        const real = await vi.importActual<typeof import("@alook/shared")>(
+          "@alook/shared"
+        );
+        return {
+          ...real,
+          createDb: vi.fn(() => ({})),
+          queries: {
+            taskMessage: {
+              createTaskMessage: vi.fn().mockResolvedValue(undefined),
+            },
+          },
+        };
+      });
+      vi.doMock("@/lib/api/responses", () => ({
+        taskMessageToResponse: (m: any) => m,
+      }));
+
+      return (await import("./tasks/[taskId]/messages/route")).POST;
+    }
+
+    it("returns 400 when message item missing seq/type", async () => {
+      const POST = await loadMessages();
+      const res = await POST(
+        postReq("http://localhost/api/daemon/tasks/t1/messages", {
+          messages: [{ content: "hello" }],
+        }),
+        { params: Promise.resolve({ taskId: "t1" }) }
+      );
+
+      expect(res.status).toBe(400);
+    });
+  });
+});

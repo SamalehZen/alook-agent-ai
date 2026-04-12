@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { startDaemon } from "../daemon/daemon.js";
+import { cmdPrefix } from "../lib/env.js";
 
 export function daemonCommand(): Command {
   const cmd = new Command("daemon").description("Manage the Alook daemon");
@@ -17,7 +18,7 @@ export function daemonCommand(): Command {
 
       if (!opts.foreground) {
         console.log(
-          "Hint: run 'alook daemon start --foreground' to start the daemon in the foreground.",
+          `Hint: run '${cmdPrefix()} daemon start --foreground' to start the daemon in the foreground.`,
         );
         return;
       }
@@ -29,7 +30,8 @@ export function daemonCommand(): Command {
     .command("status")
     .description("Show daemon status")
     .action(() => {
-      console.log("check http://localhost:19514/health");
+      const port = process.env.ALOOK_HEALTH_PORT || "19514";
+      console.log(`check http://localhost:${port}/health`);
     });
 
   return cmd;

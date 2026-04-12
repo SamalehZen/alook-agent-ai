@@ -1,6 +1,9 @@
 import { Command } from "commander";
+import { execSync } from "child_process";
+import { hostname } from "os";
 import { APIClient } from "../lib/client.js";
 import { saveCLIConfigForProfile } from "../lib/config.js";
+import { cmdPrefix } from "../lib/env.js";
 
 interface MeResponse {
   id: string;
@@ -10,6 +13,36 @@ interface MeResponse {
 interface Workspace {
   id: string;
   name: string;
+}
+
+interface ActivateResponse {
+  daemon_id: string;
+  runtimes: { id: string; provider: string }[];
+}
+
+function isCommandAvailable(cmd: string): boolean {
+  try {
+    execSync(`which ${cmd}`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function detectRuntimes(): { type: string; version: string }[] {
+  const found: { type: string; version: string }[] = [];
+  for (const type of ["claude", "codex", "opencode"]) {
+    if (isCommandAvailable(type)) {
+      let version = "";
+      try {
+        version = execSync(`${type} --version`, { encoding: "utf-8" }).trim();
+      } catch {
+        // version detection optional
+      }
+      found.push({ type, version });
+    }
+  }
+  return found;
 }
 
 export function registerCommand(): Command {
@@ -25,11 +58,12 @@ export function registerCommand(): Command {
       const serverUrl: string =
         opts.server ||
         command.parent?.opts().server ||
-        "http://localhost:3000";
+        process.env.ALOOK_SERVER_URL ||
+        "https://alook.ai";
 
       if (!token) {
         console.error(
-          "Error: --token is required\nUsage: alook register --token <token>",
+          `Error: --token is required\nUsage: ${cmdPrefix()} register --token <token>`,
         );
         process.exit(1);
       }
@@ -43,6 +77,7 @@ export function registerCommand(): Command {
 
       const client = new APIClient(serverUrl, token);
 
+      // Verify token
       let me: MeResponse;
       try {
         me = await client.getJSON<MeResponse>("/api/me");
@@ -70,17 +105,54 @@ export function registerCommand(): Command {
 
       const ws = workspaces[0];
 
+      // Detect local runtimes
+      console.log("Scanning for AI runtimes...");
+      const runtimes = detectRuntimes();
+      if (runtimes.length === 0) {
+        console.error(
+          "Error: no runtimes found. Install claude, codex, or opencode first.",
+        );
+        process.exit(1);
+      }
+      console.log(
+        `Found: ${runtimes.map((r) => r.type).join(", ")}`,
+      );
+
+      // Activate token — no auth header needed, token in body
+      const host = hostname();
+      console.log("Registering runtime...");
+      let activateResp: ActivateResponse;
+      try {
+        const res = await fetch(`${serverUrl}/api/machine-tokens/activate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, hostname: host, runtimes }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error(`Error: registration failed (${res.status}): ${text}`);
+          process.exit(1);
+        }
+        activateResp = await res.json() as ActivateResponse;
+      } catch (err) {
+        console.error(
+          `Error: failed to activate: ${err instanceof Error ? err.message : err}`,
+        );
+        process.exit(1);
+      }
+
       saveCLIConfigForProfile(profile, {
         token,
         server_url: serverUrl,
         watched_workspaces: [{ id: ws.id, name: ws.name }],
       });
 
-      console.log(`Registered as ${me.email}`);
+      console.log(`\nRegistered as ${me.email}`);
       console.log(`Workspace: ${ws.name} (${ws.id})`);
+      console.log(`Runtimes: ${activateResp.runtimes.map((r) => r.provider).join(", ")}`);
       console.log();
       console.log(
-        "Run 'alook daemon start --foreground' to start the daemon.",
+        `Run '${cmdPrefix()} daemon start --foreground' to start the daemon.`,
       );
     });
 

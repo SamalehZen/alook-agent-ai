@@ -1,0 +1,21 @@
+name = "alook-ws-do"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[dev]
+port = 8789
+inspector_port = 9230
+
+[[d1_databases]]
+binding = "DB"
+database_id = "FILL_AFTER_CREATE"
+database_name = "alook-app"
+
+[[durable_objects.bindings]]
+name = "WS_DO"
+class_name = "WebSocketDurableObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["WebSocketDurableObject"]

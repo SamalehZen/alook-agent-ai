@@ -1,16 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock all external dependencies before importing
-vi.mock("./client.js", () => ({
-  DaemonClient: vi.fn().mockImplementation(() => ({
-    register: vi.fn(async () => ({
-      runtimes: [{ id: "rt1" }],
-    })),
-    heartbeat: vi.fn(async () => {}),
-    deregister: vi.fn(async () => {}),
-    claimTask: vi.fn(async () => ({ task: null })),
+const mockClientInstance = {
+  register: vi.fn(async () => ({
+    runtimes: [{ id: "rt1" }],
   })),
-}));
+  heartbeat: vi.fn(async () => {}),
+  deregister: vi.fn(async () => {}),
+  claimTask: vi.fn(async () => ({ task: null })),
+};
+vi.mock("./client.js", () => {
+  function MockDaemonClient() { return mockClientInstance; }
+  return { DaemonClient: MockDaemonClient };
+});
 
 vi.mock("./config.js", () => ({
   loadDaemonConfig: vi.fn(() => ({
@@ -117,10 +119,7 @@ describe("daemon shutdown", () => {
     const heartbeatTimer = intervalTimers[0];
     const pollTimer = intervalTimers[1];
 
-    // Get the deregister mock to check call ordering
-    const { DaemonClient } = await import("./client.js");
-    const clientInstance = vi.mocked(DaemonClient).mock.results[0].value;
-    const deregisterMock = clientInstance.deregister;
+    const deregisterMock = mockClientInstance.deregister;
 
     let deregisterCalledAt = -1;
     let clearCalledCount = 0;

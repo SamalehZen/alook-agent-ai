@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { isDev } from "./env.js";
 
 interface WatchedWorkspace {
   id: string;
@@ -23,8 +24,15 @@ interface CLIConfig {
 
 export type { CLIConfig, ProfileConfig, WatchedWorkspace };
 
+export function configDir(): string {
+  if (isDev() && process.env.ALOOK_PROJECT_ROOT) {
+    return join(process.env.ALOOK_PROJECT_ROOT, ".alook");
+  }
+  return join(homedir(), ".alook");
+}
+
 export function configPath(): string {
-  return join(homedir(), ".alook", "config.json");
+  return join(configDir(), "config.json");
 }
 
 export function loadCLIConfig(): CLIConfig {
@@ -49,8 +57,7 @@ export function loadCLIConfigForProfile(profile?: string): ProfileConfig {
 }
 
 export function saveCLIConfig(cfg: CLIConfig): void {
-  const dir = join(homedir(), ".alook");
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
   writeFileSync(configPath(), JSON.stringify(cfg, null, 2), { mode: 0o600 });
 }
 

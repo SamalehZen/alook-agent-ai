@@ -14,71 +14,74 @@ jobs:
   quality:
     name: Typecheck & Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm tsc -b src/shared
-      - run: pnpm tsc --noEmit -p src/web/tsconfig.json
-      - run: pnpm tsc --noEmit -p src/cli/tsconfig.json
-      - run: cd src/web && pnpm eslint
-      - run: cd src/cli && pnpm eslint
+      - run: pnpm typecheck
 
   test:
     name: Tests
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: alook
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Unit tests
-        run: pnpm vitest run
-      - name: Create test database and push schema
-        env:
-          PGUSER: postgres
-          PGPASSWORD: postgres
-          PGHOST: localhost
-          PGPORT: "5432"
+      - run: pnpm test
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply D1 migration
+        run: pnpm run db:migrate
+      - name: Start dev server
         run: |
-          psql "postgres://postgres:postgres@localhost:5432/postgres" -c "CREATE DATABASE alook_test;"
-          cd src/web && DATABASE_URL="postgres://postgres:postgres@localhost:5432/alook_test?sslmode=disable" pnpm drizzle-kit push --force
-      - name: Integration tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/alook_test?sslmode=disable
-        run: pnpm vitest run --config vitest.integration.config.ts
+          BETTER_AUTH_SECRET=ci-e2e-secret BETTER_AUTH_URL=http://localhost:8787 \
+            pnpm --filter @alook/web exec next dev --port 8787 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8787/api/health > /dev/null 2>&1; then
+              echo "Server ready"
+              break
+            fi
+            echo "Waiting for server... ($i)"
+            sleep 2
+          done
+      - name: Run e2e tests
+        run: pnpm test:e2e
 
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: cd src/web && pnpm build
-      - run: cd src/cli && pnpm build
+      - run: pnpm build

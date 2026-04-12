@@ -1,0 +1,22 @@
+# =============================================================================
+# Cloudflare Worker Bindings — Local Development
+# =============================================================================
+# Copy this file to .dev.vars and fill in your values.
+# Wrangler reads .dev.vars automatically for local dev secrets.
+# NEVER commit .dev.vars — it contains real secrets.
+# =============================================================================
+
+# Session signing secret (generate with: openssl rand -base64 32)
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:3000
+
+# GitHub OAuth App (https://github.com/settings/developers)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Google OAuth (https://console.cloud.google.com/apis/credentials)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Set to "production" to enable email OTP and disable password auth
+# NEXTJS_ENV=development

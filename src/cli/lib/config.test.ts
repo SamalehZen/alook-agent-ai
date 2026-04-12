@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -10,6 +10,7 @@ vi.mock("fs", () => ({
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import {
+  configDir,
   configPath,
   loadCLIConfig,
   loadCLIConfigForProfile,
@@ -25,9 +26,37 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+afterEach(() => {
+  delete process.env.ALOOK_SERVER_URL;
+  delete process.env.ALOOK_PROJECT_ROOT;
+});
+
+describe("configDir", () => {
+  it("returns ~/.alook in production", () => {
+    expect(configDir()).toBe(join(homedir(), ".alook"));
+  });
+
+  it("returns <project-root>/.alook in dev mode", () => {
+    process.env.ALOOK_SERVER_URL = "http://localhost:3000";
+    process.env.ALOOK_PROJECT_ROOT = "/tmp/my-project";
+    expect(configDir()).toBe(join("/tmp/my-project", ".alook"));
+  });
+
+  it("falls back to ~/.alook in dev mode without ALOOK_PROJECT_ROOT", () => {
+    process.env.ALOOK_SERVER_URL = "http://localhost:3000";
+    expect(configDir()).toBe(join(homedir(), ".alook"));
+  });
+});
+
 describe("configPath", () => {
-  it("returns ~/.alook/config.json", () => {
+  it("returns ~/.alook/config.json in production", () => {
     expect(configPath()).toBe(join(homedir(), ".alook", "config.json"));
+  });
+
+  it("returns <project-root>/.alook/config.json in dev mode", () => {
+    process.env.ALOOK_SERVER_URL = "http://localhost:3000";
+    process.env.ALOOK_PROJECT_ROOT = "/tmp/my-project";
+    expect(configPath()).toBe(join("/tmp/my-project", ".alook", "config.json"));
   });
 });
 
@@ -100,7 +129,7 @@ describe("loadCLIConfigForProfile", () => {
 });
 
 describe("saveCLIConfig", () => {
-  it("writes valid JSON with mode 0600", () => {
+  it("writes valid JSON with mode 0600 to ~/.alook in production", () => {
     const cfg = { token: "abc", server_url: "http://example.com" };
     saveCLIConfig(cfg);
 
@@ -109,7 +138,25 @@ describe("saveCLIConfig", () => {
       { recursive: true, mode: 0o700 },
     );
     expect(mockedWriteFileSync).toHaveBeenCalledWith(
-      configPath(),
+      join(homedir(), ".alook", "config.json"),
+      JSON.stringify(cfg, null, 2),
+      { mode: 0o600 },
+    );
+  });
+
+  it("writes to <project-root>/.alook in dev mode", () => {
+    process.env.ALOOK_SERVER_URL = "http://localhost:3000";
+    process.env.ALOOK_PROJECT_ROOT = "/tmp/my-project";
+
+    const cfg = { token: "dev-token", server_url: "http://localhost:3000" };
+    saveCLIConfig(cfg);
+
+    expect(mockedMkdirSync).toHaveBeenCalledWith(
+      join("/tmp/my-project", ".alook"),
+      { recursive: true, mode: 0o700 },
+    );
+    expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      join("/tmp/my-project", ".alook", "config.json"),
       JSON.stringify(cfg, null, 2),
       { mode: 0o600 },
     );

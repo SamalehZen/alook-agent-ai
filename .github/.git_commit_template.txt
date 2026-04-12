@@ -1,0 +1,20 @@
+# TYPE(SCOPE): DESCRIPTION
+#
+# TYPE: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert
+# SCOPE: shared, web, cli, email-worker, ws-do, deps, config
+#
+# Examples:
+# feat(web): add agent creation page
+# fix(cli): resolve auth token refresh race condition
+# chore(deps): update dependencies
+#
+# The first line is the subject (required).
+# Leave a blank line before the body for more details.
+#
+# Body (optional):
+# - Explain what and why vs. how
+# - Reference issues: Closes #123
+#
+# Footer (optional):
+# BREAKING CHANGE: description
+

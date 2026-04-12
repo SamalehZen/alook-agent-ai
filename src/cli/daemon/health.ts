@@ -1,6 +1,8 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "http";
 
-export function startHealthServer(port: number = 19514): Server {
+const DEFAULT_HEALTH_PORT = Number(process.env.ALOOK_HEALTH_PORT) || 19514;
+
+export function startHealthServer(port: number = DEFAULT_HEALTH_PORT): Server {
   const startTime = Date.now();
   const runtimeCount = 0;
 
@@ -25,7 +27,7 @@ export function startHealthServer(port: number = 19514): Server {
   return server;
 }
 
-export function createHealthServer(port: number = 19514) {
+export function createHealthServer(port: number = DEFAULT_HEALTH_PORT) {
   let runtimeCount = 0;
   const startTime = Date.now();
 

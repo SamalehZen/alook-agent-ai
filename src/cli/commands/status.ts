@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { loadCLIConfigForProfile } from "../lib/config.js";
+import { cmdPrefix } from "../lib/env.js";
 
 export function statusCommand(): Command {
   const cmd = new Command("status")
@@ -11,7 +12,7 @@ export function statusCommand(): Command {
       if (!cfg.token) {
         console.log("Not registered");
         console.log(
-          "Run 'alook register --token <token>' to register.",
+          `Run '${cmdPrefix()} register --token <token>' to register.`,
         );
         return;
       }

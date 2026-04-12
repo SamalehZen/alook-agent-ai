@@ -1,0 +1,63 @@
+import { randomUUID } from "crypto"
+import { sql } from "./db"
+
+export interface TestSeed {
+  userId: string
+  workspaceId: string
+  memberId: string
+  runtimeId: string
+  agentId: string
+  /** Raw machine token (starts with al_) */
+  machineToken: string
+  machineTokenId: string
+}
+
+function nanoid() {
+  return randomUUID().replace(/-/g, "").slice(0, 21)
+}
+
+/**
+ * Seed a full test environment: user, workspace, member, runtime, agent, machine token.
+ * All IDs are unique per call.
+ */
+export function seedTestData(): TestSeed {
+  const userId = `u_${nanoid()}`
+  const workspaceId = `ws_${nanoid()}`
+  const memberId = `mb_${nanoid()}`
+  const runtimeId = `rt_${nanoid()}`
+  const agentId = `ag_${nanoid()}`
+  const machineTokenId = `mt_${nanoid()}`
+  const rawToken = `al_${randomUUID().replace(/-/g, "")}`
+
+  const now = new Date().toISOString()
+  const slug = `test-${nanoid()}`
+
+  sql(`INSERT INTO "user" (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('${userId}', 'Test User', '${userId}@test.local', 1, '${now}', '${now}')`)
+  sql(`INSERT INTO workspace (id, name, slug, created_at, updated_at) VALUES ('${workspaceId}', 'Test Workspace', '${slug}', '${now}', '${now}')`)
+  sql(`INSERT INTO member (id, workspace_id, user_id, role, created_at) VALUES ('${memberId}', '${workspaceId}', '${userId}', 'owner', '${now}')`)
+  sql(`INSERT INTO agent_runtime (id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, created_at, updated_at) VALUES ('${runtimeId}', '${workspaceId}', 'daemon_${nanoid()}', 'Test Runtime', 'local', 'claude', 'online', 'test-device', '${now}', '${now}')`)
+  sql(`INSERT INTO agent (id, workspace_id, name, runtime_id, created_at, updated_at) VALUES ('${agentId}', '${workspaceId}', 'Test Agent', '${runtimeId}', '${now}', '${now}')`)
+  sql(`INSERT INTO machine_token (id, user_id, workspace_id, token, name, status, created_at) VALUES ('${machineTokenId}', '${userId}', '${workspaceId}', '${rawToken}', 'test-token', 'active', '${now}')`)
+
+  return { userId, workspaceId, memberId, runtimeId, agentId, machineToken: rawToken, machineTokenId }
+}
+
+/**
+ * Clean up all test data created by seedTestData.
+ */
+export function cleanupTestData(seed: TestSeed) {
+  // Delete in reverse dependency order, cleaning up all data in the workspace
+  const ws = seed.workspaceId
+  sql(`DELETE FROM task_message WHERE task_id IN (SELECT id FROM agent_task_queue WHERE workspace_id = '${ws}')`)
+  sql(`DELETE FROM agent_task_queue WHERE workspace_id = '${ws}'`)
+  sql(`DELETE FROM message WHERE conversation_id IN (SELECT id FROM conversation WHERE workspace_id = '${ws}')`)
+  sql(`DELETE FROM conversation WHERE workspace_id = '${ws}'`)
+  sql(`DELETE FROM emails WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = '${ws}')`)
+  sql(`DELETE FROM agent_whitelist WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = '${ws}')`)
+  sql(`DELETE FROM agent WHERE workspace_id = '${ws}'`)
+  sql(`DELETE FROM agent_runtime WHERE workspace_id = '${ws}'`)
+  sql(`DELETE FROM machine_token WHERE workspace_id = '${ws}'`)
+  sql(`DELETE FROM member WHERE workspace_id = '${ws}'`)
+  sql(`DELETE FROM workspace WHERE id = '${ws}'`)
+  sql(`DELETE FROM "user" WHERE id = '${seed.userId}'`)
+}

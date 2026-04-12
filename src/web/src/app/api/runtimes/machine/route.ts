@@ -1,0 +1,35 @@
+import { NextRequest } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare"
+import { createDb, queries } from "@alook/shared"
+import { withAuth } from "@/lib/middleware/auth";
+import { withWorkspaceMember } from "@/lib/middleware/workspace";
+import { writeJSON } from "@/lib/middleware/helpers";
+import { log } from "@/lib/logger";
+import { broadcastToUser } from "@/lib/broadcast";
+
+export const DELETE = withAuth(async (req: NextRequest, ctx) => {
+  const ws = await withWorkspaceMember(req, ctx);
+  if (ws instanceof Response) return ws;
+
+  const { env } = getCloudflareContext()
+  const db = createDb((env as Env).DB)
+
+  const daemonId = req.nextUrl.searchParams.get("daemon_id");
+  if (!daemonId) {
+    return writeJSON({ error: "daemon_id is required" }, 400);
+  }
+
+  try {
+    await queries.runtime.deleteRuntimesByDaemonId(db, daemonId, ws.workspaceId);
+  } catch (e) {
+    log.error("Failed to delete machine", { err: e });
+    return writeJSON({ error: "Failed to remove machine" }, 500);
+  }
+
+  broadcastToUser(ctx.userId, {
+    type: "runtime.deleted",
+    daemonId,
+  }).catch(() => {});
+
+  return new Response(null, { status: 204 });
+});

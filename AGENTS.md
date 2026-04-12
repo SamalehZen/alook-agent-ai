@@ -2,9 +2,12 @@
 Alook's main purpose is to make the cli agent always on, and give it a email address.
 
 ## Navigation
-- `plans/`: place your dev plans
-- `src/web`: landing page + user dashboard
-- `src/cli`: cli + daemon
+- `plans/`: place your dev plans (gitignored, local only)
+- `src/shared`: shared types, schema, queries, validators
+- `src/web`: Next.js app on Cloudflare Workers (D1 + R2)
+- `src/cli`: CLI + daemon
+- `src/email-worker`: inbound email Cloudflare Worker
+- `src/ws-do`: WebSocket Durable Object worker
 
 ## Plan-driven Development
 - You must make a markdown plan at `plans/` before you implement any my request, otherwise I will reject your implementation.
@@ -23,49 +26,30 @@ Alook's main purpose is to make the cli agent always on, and give it a email add
 
 ## Don't use plan MODE, try to write the plan md directly
 
-## Database Queries — No Raw SQL
+## Database — Cloudflare D1 (SQLite) + Drizzle ORM
+
+Schema lives in `src/shared/src/schema.ts` using `sqliteTable` from `drizzle-orm/sqlite-core`.
+Queries use the shared query modules in `src/shared/src/queries/`.
 
 Use Drizzle ORM operators for all queries. **Never use `sql` template literals** unless there is no ORM equivalent (atomic increment, upsert `excluded.*` references).
 
-**Why:** Drizzle aliases tables internally (e.g. `conversation` → `t0`). Raw SQL like `` sql`"conversation"."id"` `` breaks silently because the alias doesn't match, returning wrong results with no error.
-
-### Bad — raw SQL
-```ts
-// Broken: Drizzle may alias the table, subquery returns 0
-sql`(SELECT count(*) FROM message WHERE message.conversation_id = ${conversation.id})`
-
-// Broken: hardcoded table name won't match Drizzle alias
-sql`${agentRuntime.lastSeenAt} < now() - interval '45 seconds'`
-
-// Broken: no type safety, typos fail silently at runtime
-sql`${verificationCode.expiresAt} > now()`
-```
+**Why:** Drizzle aliases tables internally. Raw SQL with hardcoded table/column names breaks silently.
 
 ### Good — ORM operators
 ```ts
-// Use leftJoin + count for aggregations
+// Aggregations
 db.select({ messageCount: count(message.id) })
   .from(conversation)
   .leftJoin(message, eq(message.conversationId, conversation.id))
   .groupBy(conversation.id)
 
-// Use lt/gt with Date objects for timestamp comparisons
-const threshold = new Date(Date.now() - 45 * 1000);
-lt(agentRuntime.lastSeenAt, threshold)
-
-// Use gt/lt for value comparisons
-gt(verificationCode.expiresAt, new Date())
+// Comparisons with ISO strings (D1 stores timestamps as TEXT)
+gt(verificationCode.expiresAt, new Date().toISOString())
 lt(verificationCode.attempts, 5)
 
-// Use isNull/isNotNull instead of IS NULL
+// Null checks
 isNull(agentRuntime.lastSeenAt)
 isNotNull(agentTaskQueue.sessionId)
-
-// Use count() instead of COUNT(*)
-db.select({ value: count() }).from(table).where(...)
-
-// Use new Date() instead of sql`now()`
-.set({ updatedAt: new Date() })
 ```
 
 ### Acceptable exceptions

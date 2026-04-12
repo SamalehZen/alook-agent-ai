@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { APIClient } from "../lib/client.js";
 import { loadCLIConfigForProfile } from "../lib/config.js";
 import { printTable, printJSON } from "../lib/output.js";
+import { cmdPrefix } from "../lib/env.js";
 
 interface Agent {
   id: string;
@@ -20,7 +21,7 @@ function resolveClientOpts(command: Command) {
 
   if (!token) {
     console.error(
-      "Error: not registered. Run 'alook register --token <token>' first.",
+      `Error: not registered. Run '${cmdPrefix()} register --token <token>' first.`,
     );
     process.exit(1);
   }
