@@ -145,10 +145,6 @@ export default function RuntimesPage() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const confirmAction = useRef<(() => Promise<void>) | null>(null);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
   // Auto-open "New machine" sheet when navigated with ?connect
   useEffect(() => {
     if (searchParams.has("connect")) {

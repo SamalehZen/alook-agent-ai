@@ -10,6 +10,11 @@ const WS_RECONNECT_MAX = Number(process.env.NEXT_PUBLIC_WS_RECONNECT_MAX_DELAY_M
 export function useAgentWs(agentId: string, onMessage: (msg: WsMessage) => void) {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectDelay = useRef(WS_RECONNECT_INIT)
+  const onMessageRef = useRef(onMessage)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep the ref in sync with the latest callback on every render
+  onMessageRef.current = onMessage
 
   const connect = useCallback(async () => {
     let url: string
@@ -50,21 +55,35 @@ export function useAgentWs(agentId: string, onMessage: (msg: WsMessage) => void)
       try {
         const msg = JSON.parse(e.data)
         if (msg.type === "auth.ok") return
-        onMessage(msg as WsMessage)
+        onMessageRef.current(msg as WsMessage)
       } catch {}
     }
 
     ws.onerror = () => {}
 
     ws.onclose = () => {
+      // Ownership check: only reconnect if this WS is still the current one.
+      // If effect cleanup already replaced wsRef.current, this is an orphan — skip.
+      if (ws !== wsRef.current) return
+
       const delay = Math.min(reconnectDelay.current, WS_RECONNECT_MAX)
       reconnectDelay.current = Math.min(delay * 2, WS_RECONNECT_MAX)
-      setTimeout(connect, delay + Math.random() * 500)
+      reconnectTimerRef.current = setTimeout(connect, delay + Math.random() * 500)
     }
-  }, [agentId, onMessage])
+  }, [agentId])
 
   useEffect(() => {
     connect()
-    return () => { wsRef.current?.close() }
+    return () => {
+      // Clear any pending reconnect timer first
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
+      // Nullify wsRef BEFORE closing so the onclose handler's ownership check fails
+      const ws = wsRef.current
+      wsRef.current = null
+      ws?.close()
+    }
   }, [connect])
 }
