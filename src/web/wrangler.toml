@@ -3,6 +3,9 @@ main = ".open-next/worker.js"
 compatibility_date = "2026-04-09"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+NEXTJS_ENV = "production"
+
 # OpenNext required bindings
 [assets]
 directory = ".open-next/assets"
