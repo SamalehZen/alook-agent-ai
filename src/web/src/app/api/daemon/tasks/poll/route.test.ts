@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockGetRuntimeIdsByDaemon = vi.fn();
-const mockUpdateMachineLastSeen = vi.fn();
+const mockUpsertMachine = vi.fn();
 const mockGetAgent = vi.fn();
 const mockClaimTasksForRuntimes = vi.fn();
 const mockSweepStaleState = vi.fn();
@@ -22,7 +22,7 @@ vi.mock("@alook/shared", async () => {
         getRuntimeIdsByDaemon: (...args: unknown[]) => mockGetRuntimeIdsByDaemon(...args),
       },
       machine: {
-        updateMachineLastSeen: (...args: unknown[]) => mockUpdateMachineLastSeen(...args),
+        upsertMachine: (...args: unknown[]) => mockUpsertMachine(...args),
       },
       agent: {
         getAgent: (...args: unknown[]) => mockGetAgent(...args),
@@ -84,21 +84,27 @@ function postReq(body: unknown) {
 describe("POST /api/daemon/tasks/poll", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("returns empty tasks array when daemon has no runtimes", async () => {
+  it("returns empty tasks array when daemon has no runtimes but still updates liveness", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue([]);
+    mockBroadcastToUser.mockResolvedValue(undefined);
 
     const res = await POST(postReq({ daemon_id: "d1" }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.tasks).toEqual([]);
-    expect(mockUpdateMachineLastSeen).not.toHaveBeenCalled();
-    expect(mockBroadcastToUser).not.toHaveBeenCalled();
+    expect(mockUpsertMachine).toHaveBeenCalledWith({}, {
+      daemonId: "d1",
+      workspaceId: "w1",
+      deviceInfo: "d1",
+    });
+    expect(mockBroadcastToUser).toHaveBeenCalled();
   });
 
-  it("resolves runtime IDs from daemon_id and updates machine last_seen_at", async () => {
+  it("resolves runtime IDs from daemon_id and upserts machine liveness", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue(["r1", "r2"]);
-    mockUpdateMachineLastSeen.mockResolvedValue(undefined);
     mockSweepStaleState.mockResolvedValue(undefined);
     mockBroadcastToUser.mockResolvedValue(undefined);
     mockClaimTasksForRuntimes.mockResolvedValue([]);
@@ -106,14 +112,17 @@ describe("POST /api/daemon/tasks/poll", () => {
     await POST(postReq({ daemon_id: "d1" }));
 
     expect(mockGetRuntimeIdsByDaemon).toHaveBeenCalledWith({}, "d1", "w1");
-    // 1 machine write instead of N runtime writes
-    expect(mockUpdateMachineLastSeen).toHaveBeenCalledTimes(1);
-    expect(mockUpdateMachineLastSeen).toHaveBeenCalledWith({}, "d1", "w1");
+    expect(mockUpsertMachine).toHaveBeenCalledTimes(1);
+    expect(mockUpsertMachine).toHaveBeenCalledWith({}, {
+      daemonId: "d1",
+      workspaceId: "w1",
+      deviceInfo: "d1",
+    });
   });
 
   it("returns tasks with agent data for claimed tasks", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue(["r1", "r2"]);
-    mockUpdateMachineLastSeen.mockResolvedValue(undefined);
     mockSweepStaleState.mockResolvedValue(undefined);
     mockBroadcastToUser.mockResolvedValue(undefined);
     mockClaimTasksForRuntimes.mockResolvedValue([
@@ -136,12 +145,13 @@ describe("POST /api/daemon/tasks/poll", () => {
       name: "Bot",
       runtime_config: { model: "gpt-4" },
       email_handle: null,
+      user_email: "u@t.com",
     });
   });
 
   it("broadcasts single runtime.status with daemonId and workspaceId", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue(["r1", "r2", "r3"]);
-    mockUpdateMachineLastSeen.mockResolvedValue(undefined);
     mockSweepStaleState.mockResolvedValue(undefined);
     mockBroadcastToUser.mockResolvedValue(undefined);
     mockClaimTasksForRuntimes.mockResolvedValue([]);
@@ -159,8 +169,8 @@ describe("POST /api/daemon/tasks/poll", () => {
   });
 
   it("calls sweepStaleState", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue(["r1"]);
-    mockUpdateMachineLastSeen.mockResolvedValue(undefined);
     mockSweepStaleState.mockResolvedValue(undefined);
     mockBroadcastToUser.mockResolvedValue(undefined);
     mockClaimTasksForRuntimes.mockResolvedValue([]);
@@ -171,8 +181,8 @@ describe("POST /api/daemon/tasks/poll", () => {
   });
 
   it("respects max_tasks parameter", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue(["r1"]);
-    mockUpdateMachineLastSeen.mockResolvedValue(undefined);
     mockSweepStaleState.mockResolvedValue(undefined);
     mockBroadcastToUser.mockResolvedValue(undefined);
     mockClaimTasksForRuntimes.mockResolvedValue([]);
@@ -183,8 +193,8 @@ describe("POST /api/daemon/tasks/poll", () => {
   });
 
   it("defaults max_tasks to 1", async () => {
+    mockUpsertMachine.mockResolvedValue({});
     mockGetRuntimeIdsByDaemon.mockResolvedValue(["r1"]);
-    mockUpdateMachineLastSeen.mockResolvedValue(undefined);
     mockSweepStaleState.mockResolvedValue(undefined);
     mockBroadcastToUser.mockResolvedValue(undefined);
     mockClaimTasksForRuntimes.mockResolvedValue([]);

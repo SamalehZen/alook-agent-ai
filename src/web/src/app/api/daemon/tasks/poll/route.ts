@@ -19,7 +19,21 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     return writeError("Forbidden: machine token required", 403);
   }
 
-  // 1. Resolve runtime IDs from daemon_id + workspaceId
+  // 1. Liveness: upsert machine row (creates if missing, updates lastSeenAt if exists)
+  await queries.machine.upsertMachine(db, {
+    daemonId: body.daemon_id,
+    workspaceId: ctx.workspaceId,
+    deviceInfo: body.daemon_id,
+  });
+
+  broadcastToUser(ctx.userId, {
+    type: "runtime.status",
+    daemonId: body.daemon_id,
+    workspaceId: ctx.workspaceId,
+    status: "online",
+  }).catch(() => {});
+
+  // 2. Resolve runtime IDs from daemon_id + workspaceId
   const runtimeIds = await queries.runtime.getRuntimeIdsByDaemon(
     db,
     body.daemon_id,
@@ -29,21 +43,6 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   if (runtimeIds.length === 0) {
     return writeJSON({ tasks: [] });
   }
-
-  // 2. Liveness: update machine last_seen_at (1 row write instead of N)
-  await queries.machine.updateMachineLastSeen(
-    db,
-    body.daemon_id,
-    ctx.workspaceId,
-  );
-
-  // Single broadcast at daemon level
-  broadcastToUser(ctx.userId, {
-    type: "runtime.status",
-    daemonId: body.daemon_id,
-    workspaceId: ctx.workspaceId,
-    status: "online",
-  }).catch(() => {});
 
   // 3. Housekeeping: sweep stale state
   await sweepStaleState(db, ctx.workspaceId);
@@ -67,6 +66,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
             name: agent.name,
             runtime_config: agent.runtimeConfig || {},
             email_handle: agent.emailHandle || null,
+            user_email: ctx.email || null,
           }
         : null,
     });

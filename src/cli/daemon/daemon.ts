@@ -97,6 +97,7 @@ export async function startDaemon(
       version: p.version,
     }));
 
+    log.info(`Registering workspace ${ws.id} (${ws.name ?? "unnamed"}) with ${runtimes.length} runtime(s)...`);
     let resp;
     try {
       resp = await client.register(ws.token, {
@@ -110,6 +111,7 @@ export async function startDaemon(
       log.error(`Failed to register workspace ${ws.id}, skipping`, e);
       continue;
     }
+    log.info(`Workspace ${ws.id} registered — ${resp.runtimes.length} runtime(s)`);
 
     const runtimeIds = resp.runtimes.map((r: { id: string }) => r.id);
     workspaceStates.push({ workspaceId: ws.id, token: ws.token, runtimeIds });
@@ -131,7 +133,7 @@ export async function startDaemon(
   const allRuntimeIds = workspaceStates.flatMap((ws) => ws.runtimeIds);
   health.setRuntimeCount(allRuntimeIds.length);
   log.info(
-    `Daemon started — ${allRuntimeIds.length} runtime(s) across ${workspaces.length} workspace(s)`,
+    `Daemon started — ${allRuntimeIds.length} runtime(s) across ${workspaceStates.length} workspace(s)`,
   );
 
   const activeTasks = new Set<string>();

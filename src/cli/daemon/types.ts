@@ -18,6 +18,7 @@ export interface TaskAgentData {
   name: string;
   instructions: string;
   emailHandle?: string | null;
+  userEmail?: string | null;
 }
 
 export interface RepoData {
@@ -100,7 +101,7 @@ export function fromApiTask(api: import("@alook/shared").TaskApi): Task {
     priority: api.priority,
     type: api.type,
     agent: api.agent
-      ? { name: api.agent.name, instructions: api.agent.instructions, emailHandle: api.agent.email_handle ?? undefined }
+      ? { name: api.agent.name, instructions: api.agent.instructions, emailHandle: api.agent.email_handle ?? undefined, userEmail: api.agent.user_email ?? undefined }
       : undefined,
     repos: undefined,
     createdAt: api.created_at,

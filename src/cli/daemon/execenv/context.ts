@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { toAlookAddress } from "@alook/shared";
 import {
   writeFileSync,
   readFileSync,
@@ -14,7 +15,8 @@ import type { Task } from "../types.js";
 export const CANONICAL_FILE = "AGENTS.md";
 export const SYMLINK_ALIASES = ["CLAUDE.md"];
 
-const SYSTEM_PROMPT = `## Memory Management
+const SYSTEM_PROMPT = `You're Alook Agent.
+## Memory Management
 - Your memory directory is ./, don't write ANY EXTERNAL memory file.
 - Write ESSENTIAL yet SHORT memory to ./memory.md
 - For SPECIFIC yet LONG rules or pattern, write to experiences/[NAME].md, and add index to ./memory.md for later recall.
@@ -75,10 +77,12 @@ ${task.agent.instructions}
     content += `\n## Alook CLI Tools
 You can communicate with the world through Alook CLI.
 Your alook agent id is '${task.agentId}'. remember this, most of alook cli will requires you input your agent id.
+Your email address is '${toAlookAddress(task.agent.emailHandle)}'.
+${task.agent.userEmail ? `Your owner's email address is '${task.agent.userEmail}'.` : ""}
 
 ### Emails
 ---
-Run 'alook email pull --agent_id ${task.agentId} --status unread' to download unread emails to '/tmp/alook-emails/'.
+Run 'npx @alook/cli pull --agent_id ${task.agentId} --status unread' to download unread emails to '/tmp/alook-emails/'.
 Each email is saved to '/tmp/alook-emails/<emailId>/' with:
 - 'metadata.json' — sender, recipient, subject, date, status
 - 'body.txt' — plain text body
@@ -86,7 +90,7 @@ Each email is saved to '/tmp/alook-emails/<emailId>/' with:
 - 'attachments/' — extracted attachment files (if any)
 ---
 Before starting to process an email, mark it as read:
-- Run 'alook email set --agent_id ${task.agentId} --email_id <EMAIL_ID> --status read'
+- Run 'npx @alook/cli set --agent_id ${task.agentId} --email_id <EMAIL_ID> --status read'
 ---
 `;
   }

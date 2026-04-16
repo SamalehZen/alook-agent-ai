@@ -19,16 +19,37 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 describe("buildInstructionContent email tool injection", () => {
-  it("includes email tool section when agent has email handle", () => {
+  it("includes email tool section with full email address when agent has email handle", () => {
     const task = makeTask({
       agent: { name: "test", instructions: "do stuff", emailHandle: "myagent" },
     });
     const content = buildInstructionContent(task);
 
-    expect(content).toContain("alook email pull --agent_id agent-123 --status unread");
-    expect(content).toContain("alook email set --agent_id agent-123 --email_id <EMAIL_ID> --status read");
+    expect(content).toContain("npx @alook/cli pull --agent_id agent-123 --status unread");
+    expect(content).toContain("npx @alook/cli set --agent_id agent-123 --email_id <EMAIL_ID> --status read");
     expect(content).toContain("/tmp/alook-emails/");
     expect(content).toContain("metadata.json");
+    expect(content).toContain("Your email address is 'myagent@alook.ai'");
+  });
+
+  it("includes owner email when user email is provided", () => {
+    const task = makeTask({
+      agent: { name: "test", instructions: "do stuff", emailHandle: "myagent", userEmail: "gus@example.com" },
+    });
+    const content = buildInstructionContent(task);
+
+    expect(content).toContain("Your email address is 'myagent@alook.ai'");
+    expect(content).toContain("Your owner's email address is 'gus@example.com'");
+  });
+
+  it("omits owner email line when user email is not provided", () => {
+    const task = makeTask({
+      agent: { name: "test", instructions: "do stuff", emailHandle: "myagent" },
+    });
+    const content = buildInstructionContent(task);
+
+    expect(content).toContain("Your email address is 'myagent@alook.ai'");
+    expect(content).not.toContain("owner's email");
   });
 
   it("omits email tool section when agent has no email handle", () => {

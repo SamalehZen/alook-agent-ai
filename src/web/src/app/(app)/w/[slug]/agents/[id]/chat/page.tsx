@@ -357,7 +357,7 @@ export default function AgentChatPage() {
                 ) : !hasTaskStream ? (
                   <div className="flex justify-start">
                     <div className="markdown max-w-full px-1 py-1 text-base text-foreground">
-                      <Streamdown controls={{ code: { copy: true, download: false }, table: { copy: true, download: false, fullscreen: true } }}>{msg.content}</Streamdown>
+                      <Streamdown controls={{ code: { copy: true, download: false }, table: { copy: true, download: false, fullscreen: true } }} linkSafety={{ enabled: false }}>{msg.content}</Streamdown>
                     </div>
                   </div>
                 ) : null}

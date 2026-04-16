@@ -360,7 +360,7 @@ export function TaskStream({
               key={item.id}
               className="markdown max-w-full px-1 py-1 text-base text-foreground"
             >
-              <Streamdown controls={{ code: { copy: true, download: false }, table: { copy: true, download: false, fullscreen: true } }}>{item.content}</Streamdown>
+              <Streamdown controls={{ code: { copy: true, download: false }, table: { copy: true, download: false, fullscreen: true } }} linkSafety={{ enabled: false }}>{item.content}</Streamdown>
             </div>
           ))}
         </div>

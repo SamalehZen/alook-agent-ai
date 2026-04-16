@@ -812,10 +812,6 @@
 .markdown a {
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: var(--border);
-  transition: text-decoration-color 200ms;
-}
-.markdown a:hover {
   text-decoration-color: currentColor;
 }
 .markdown hr {
