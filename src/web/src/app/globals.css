@@ -845,8 +845,13 @@
 .markdown em { font-style: italic; }
 
 /* ── TipTap editor styles ── */
+.tiptap { line-height: 1.6; }
+.tiptap p { margin: 0.25em 0; }
+.tiptap > p:first-child { margin-top: 0; }
+.tiptap > p:last-child { margin-bottom: 0; }
 .tiptap p.is-editor-empty:first-child::before {
   color: var(--muted-foreground);
+  opacity: 0.5;
   content: attr(data-placeholder);
   float: left;
   height: 0;

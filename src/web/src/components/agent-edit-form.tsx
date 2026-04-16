@@ -96,29 +96,34 @@ export function AgentEditForm({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="agent-handle">Email Handle</Label>
-          <div className="flex items-center gap-0">
-            <Input
-              id="agent-handle"
-              value={emailHandle}
-              onChange={(e) => setEmailHandle(e.target.value.toLowerCase())}
-              placeholder={derivedHandle || "my-agent"}
-              className="rounded-r-none"
-            />
-            <span className="inline-flex h-8 items-center rounded-r-lg border border-l-0 border-input bg-muted px-2.5 text-sm text-muted-foreground">
-              @alook.ai
-            </span>
-          </div>
-          {effectiveHandle && (
-            <p className={cn(
-              "text-xs",
-              handleError ? "text-destructive" : "text-muted-foreground"
-            )}>
-              {handleError || `${effectiveHandle}@alook.ai`}
+        {!agent && (
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-handle">Email Handle</Label>
+            <div className="flex items-center gap-0">
+              <Input
+                id="agent-handle"
+                value={emailHandle}
+                onChange={(e) => setEmailHandle(e.target.value.toLowerCase())}
+                placeholder={derivedHandle || "my-agent"}
+                className="rounded-r-none"
+              />
+              <span className="inline-flex h-8 items-center rounded-r-lg border border-l-0 border-input bg-muted px-2.5 text-sm text-muted-foreground">
+                @alook.ai
+              </span>
+            </div>
+            {effectiveHandle && (
+              <p className={cn(
+                "text-xs",
+                handleError ? "text-destructive" : "text-muted-foreground"
+              )}>
+                {handleError || `${effectiveHandle}@alook.ai`}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground/70">
+              This cannot be changed after creation.
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="agent-instructions">Instructions</Label>
@@ -131,28 +136,16 @@ export function AgentEditForm({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="agent-runtime">Runtime</Label>
-          {agent ? (
-            <p className="text-sm text-muted-foreground">
-              {(() => {
-                const rt = runtimes.find((r) => r.id === agent.runtime_id);
-                if (!rt) return "Unknown runtime";
-                const machine =
-                  (typeof rt.device_info === "string" ? rt.device_info : "") ||
-                  rt.name ||
-                  "";
-                return machine ? `${rt.provider} (${machine})` : rt.provider;
-              })()}
-            </p>
-          ) : (
+        {!agent && (
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-runtime">Runtime</Label>
             <RuntimeSelect
               value={runtimeId}
               onValueChange={setRuntimeId}
               runtimes={runtimes}
             />
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 pt-2">
           <Button
@@ -171,6 +164,31 @@ export function AgentEditForm({
             {saving ? savingLabel : submitLabel}
           </Button>
         </div>
+
+        {agent && (
+          <div className="space-y-3 border-t border-border/40 pt-4">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Email Handle</Label>
+              <p className="text-sm text-muted-foreground">
+                {agent.email_handle ? `${agent.email_handle}@alook.ai` : "Not configured"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Runtime</Label>
+              <p className="text-sm text-muted-foreground">
+                {(() => {
+                  const rt = runtimes.find((r) => r.id === agent.runtime_id);
+                  if (!rt) return "Unknown runtime";
+                  const machine =
+                    (typeof rt.device_info === "string" ? rt.device_info : "") ||
+                    rt.name ||
+                    "";
+                  return machine ? `${rt.provider} (${machine})` : rt.provider;
+                })()}
+              </p>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

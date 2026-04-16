@@ -84,7 +84,7 @@ export function EmailToolbar({ editor }: EmailToolbarProps) {
   };
 
   return (
-    <div className="flex items-center gap-0.5 border-b border-border/30 px-3 py-1">
+    <div className="flex items-center gap-0.5 px-3 py-1 overflow-x-auto">
       {/* Inline formatting */}
       <ToolbarButton
         title="Bold"

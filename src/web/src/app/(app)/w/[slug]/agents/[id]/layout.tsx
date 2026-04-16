@@ -52,16 +52,20 @@ export default function AgentDetailLayout({ children }: { children: ReactNode })
           )}
           {agent ? (
             <Link
-              href={`/w/${slug}/agents/${agentId}/email`}
+              href={`/w/${slug}/agents/${agentId}/chat`}
               onClick={() => setEditing(false)}
               className="text-sm font-medium truncate hover:text-foreground/80 transition-colors"
             >
-              {agent.name}
+              <span title={agent.description || "No description"}>
+                {agent.name}
+              </span>
             </Link>
           ) : (
             <Skeleton className="h-3.5 w-24" />
           )}
-          {editing && <span className="text-xs text-muted-foreground">/ Settings</span>}
+          <span className="text-xs text-muted-foreground">
+            / {editing ? "Settings" : isOnChat ? "Chat" : "Email"}
+          </span>
         </div>
         {agent ? (
           <div className="flex items-center gap-0.5 shrink-0">

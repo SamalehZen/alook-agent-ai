@@ -73,7 +73,7 @@ export function RuntimeSelect({
       <SelectTrigger>
         <SelectValue placeholder={getPlaceholder(runtimes)} />
       </SelectTrigger>
-      <SelectPopup portal={false}>
+      <SelectPopup>
         {Array.from(groups.entries()).map(([key, group]) => (
           <SelectGroup key={key}>
             <SelectGroupLabel className="truncate">

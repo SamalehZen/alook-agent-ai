@@ -127,9 +127,9 @@ export function EmailCompose({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full min-w-0">
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-2">
-        <h3 className="text-sm font-medium">New Email</h3>
+        <h3 className="text-sm font-heading font-medium tracking-tight">New Email</h3>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -157,31 +157,35 @@ export function EmailCompose({
         </div>
       </div>
 
-      <div className="border-b border-border/30 px-4 py-2 space-y-2">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground w-14 shrink-0">From:</span>
-          <span className="text-foreground/70">{fromAddress}</span>
+      <div className="border-b border-border/30 px-4 py-2.5 space-y-1 min-w-0">
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <span className="text-muted-foreground w-16 shrink-0">From</span>
+          <span className="text-muted-foreground truncate min-w-0">{fromAddress}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground w-14 shrink-0">To:</span>
-          <Input
-            type="email"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="recipient@example.com"
-            className="h-7 text-sm border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-            disabled={sending}
-          />
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <span className="text-muted-foreground w-16 shrink-0">To</span>
+          <div className="flex-1 min-w-0 -ml-1.5 rounded-md bg-muted/40">
+            <Input
+              type="email"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="recipient@example.com"
+              className="h-7 text-sm border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
+              disabled={sending}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground w-14 shrink-0">Subject:</span>
-          <Input
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Email subject"
-            className="h-7 text-sm border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-            disabled={sending}
-          />
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <span className="text-muted-foreground w-16 shrink-0">Subject</span>
+          <div className="flex-1 min-w-0 -ml-1.5 rounded-md bg-muted/40">
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Email subject"
+              className="h-7 text-sm border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
+              disabled={sending}
+            />
+          </div>
         </div>
       </div>
 
