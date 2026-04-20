@@ -30,6 +30,7 @@ interface ArtifactSheetProps {
 const MIN_WIDTH = 320;
 const MAX_WIDTH_RATIO = 0.8;
 const DEFAULT_WIDTH = 448;
+const MOBILE_BREAKPOINT = 640;
 
 export function ArtifactSheet({ open, onOpenChange, artifacts, workspaceId, initialArtifact = null }: ArtifactSheetProps) {
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
@@ -70,14 +71,14 @@ export function ArtifactSheet({ open, onOpenChange, artifacts, workspaceId, init
       <SheetContent
         side="right"
         showCloseButton={false}
-        style={{ width, maxWidth: "none" }}
-        className="data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-auto data-[side=right]:rounded-xl data-[side=right]:border data-[side=right]:border-l"
+        style={{ width: `min(${width}px, 100vw)`, maxWidth: "none" }}
+        className="data-[side=right]:max-sm:inset-y-0 data-[side=right]:max-sm:right-0 data-[side=right]:max-sm:rounded-none data-[side=right]:max-sm:border-l data-[side=right]:sm:inset-y-2 data-[side=right]:sm:right-2 data-[side=right]:sm:h-auto data-[side=right]:sm:rounded-xl data-[side=right]:sm:border"
       >
         <div
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors rounded-l-xl"
+          className="hidden sm:block absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors rounded-l-xl"
         />
         {selectedArtifact ? (
           <>
