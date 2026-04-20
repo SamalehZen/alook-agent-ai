@@ -48,7 +48,10 @@ export function AgentChatView() {
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(`chat-draft:${agentId}`) ?? "";
+  });
   const [sending, setSending] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [taskMessages, setTaskMessages] = useState<TaskMessage[]>([]);
@@ -65,6 +68,15 @@ export function AgentChatView() {
   const loadingMoreRef = useRef(false);
   const isNearBottom = useRef(true);
   const startPollingRef = useRef<(taskId: string, conversationId: string, initialSeq?: number) => void>(null!);
+
+  useEffect(() => {
+    const key = `chat-draft:${agentId}`;
+    if (input) {
+      localStorage.setItem(key, input);
+    } else {
+      localStorage.removeItem(key);
+    }
+  }, [input, agentId]);
 
   const scrollToBottom = useCallback(() => {
     isNearBottom.current = true;
@@ -118,11 +130,11 @@ export function AgentChatView() {
     }
   }, [loading, messages.length]);
 
-  // Auto-scroll as new task steps arrive while running
+  // Auto-scroll when task badge appears or new task steps arrive
   const taskStatus = activeTask?.status;
   useEffect(() => {
     const isRunning = taskStatus === "running" || taskStatus === "queued";
-    if (isRunning && taskMessages.length > 0 && isNearBottom.current) {
+    if (isRunning && isNearBottom.current) {
       scrollToBottom();
     }
   }, [taskMessages.length, taskStatus, scrollToBottom]);
@@ -466,7 +478,7 @@ export function AgentChatView() {
               className={cn(
                 "field-sizing-content w-full resize-none bg-transparent px-3.5 pt-2.5 text-base outline-none",
                 "placeholder:text-muted-foreground disabled:cursor-not-allowed",
-                "min-h-[38px] max-h-[200px]"
+                "min-h-[38px] max-h-[200px] thin-scrollbar"
               )}
             />
             <div className="flex items-center justify-end px-2 pb-2 pt-0.5">
