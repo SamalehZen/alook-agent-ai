@@ -6,11 +6,9 @@ export function register() {
   if (process.env.NODE_ENV !== "development") return
 
   // Patch stdout.write to prepend timestamps to Next.js dev request logs.
-  // Use Function constructor to access process.stdout without the Edge bundler
-  // statically detecting the Node.js API reference.
   try {
-    const getStdout = new Function("return process.stdout") as () => typeof process.stdout
-    const stdout = getStdout()
+    const proc = (globalThis as Record<string, unknown>)["process"] as typeof process | undefined
+    const stdout = proc?.stdout
     if (typeof stdout?.write === "function") {
       const origWrite = stdout.write.bind(stdout)
       const REQUEST_LOG_RE = /^ +(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /
