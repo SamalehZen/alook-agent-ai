@@ -27,7 +27,8 @@ export const GET = withAuth(async (req: NextRequest, ctx) => {
   }
 
   const folder = req.nextUrl.searchParams.get("folder");
-  const agentEmail = agent.emailHandle ? `${agent.emailHandle}@alook.ai` : "";
+  const address = req.nextUrl.searchParams.get("address");
+  const agentEmail = address || (agent.emailHandle ? `${agent.emailHandle}@alook.ai` : "");
 
   let emailList;
   if (folder === "inbox" && agentEmail) {

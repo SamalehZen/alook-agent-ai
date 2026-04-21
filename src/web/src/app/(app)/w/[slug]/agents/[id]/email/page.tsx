@@ -78,10 +78,10 @@ export default function AgentEmailPage() {
 
   const selected = emails.find((e) => e.id === selectedId) ?? null;
 
-  const loadEmails = useCallback(async (dir: string) => {
+  const loadEmails = useCallback(async (dir: string, address?: string) => {
     setLoading(true);
     try {
-      const data = await listEmails(agentId, workspaceId, dir);
+      const data = await listEmails(agentId, workspaceId, dir, address);
       setEmails(data);
     } catch {
       toast.error("Failed to load emails");
@@ -98,16 +98,16 @@ export default function AgentEmailPage() {
     setSelectedId(null);
     setBody(null);
     setComposing(false);
-    loadEmails(folder);
-  }, [folder, loadEmails]);
+    loadEmails(folder, activeAddress);
+  }, [folder, activeAddress, loadEmails]);
 
   useEffect(() => {
     return subscribeWs((msg) => {
       if (msg.type === "email.received" && msg.agentId === agentId) {
-        loadEmails(folder);
+        loadEmails(folder, activeAddress);
       }
     });
-  }, [subscribeWs, agentId, folder, loadEmails]);
+  }, [subscribeWs, agentId, folder, activeAddress, loadEmails]);
 
   const handleSelect = async (emailId: string) => {
     setComposing(false);
