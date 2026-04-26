@@ -37,7 +37,7 @@ export function EmailSummary({ overview, agents }: EmailSummaryProps) {
           </div>
           <div>
             <p className={`text-xl font-semibold ${rejected > 0 ? "text-amber-500" : ""}`}>{rejected}</p>
-            <p className="text-xs text-muted-foreground">Rejected</p>
+            <p className="text-xs text-muted-foreground">Untrust</p>
           </div>
         </div>
 
