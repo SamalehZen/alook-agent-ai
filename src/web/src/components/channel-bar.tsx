@@ -19,6 +19,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 export function ChannelBar({ isMobile = false }: { isMobile?: boolean }) {
@@ -102,12 +107,21 @@ export function ChannelBar({ isMobile = false }: { isMobile?: boolean }) {
           onCancel={() => setCreating(false)}
         />
       ) : (
-        <button
-          onClick={() => setCreating(true)}
-          className="h-5 w-5 rounded-md border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-foreground/50 hover:text-foreground hover:bg-accent transition-colors duration-200 inline-flex items-center justify-center cursor-pointer shrink-0"
-        >
-          <Plus className="size-3" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                onClick={() => setCreating(true)}
+                className="h-5 w-5 rounded-md border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-foreground/50 hover:text-foreground hover:bg-accent transition-colors duration-200 inline-flex items-center justify-center cursor-pointer shrink-0"
+              />
+            }
+          >
+            <Plus className="size-3" />
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Add New Chatting Channel
+          </TooltipContent>
+        </Tooltip>
       )}
     </div>
   );

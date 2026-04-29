@@ -95,7 +95,7 @@ export default function HomePage() {
 
   if (overviewLoading || !overview) {
     return (
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto thin-scrollbar">
         <div className="p-4 lg:p-6 space-y-4">
           <Skeleton className="h-48 rounded-xl" />
           <div className="grid gap-4 lg:grid-cols-2">
@@ -108,7 +108,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+    <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar lg:overflow-hidden">
       <div className="flex min-h-full flex-col gap-4 p-4 lg:h-full lg:min-h-[600px] lg:p-6">
         <AgentOverview
           agents={agents}
