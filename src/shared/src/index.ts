@@ -92,6 +92,7 @@ export {
   TaskApiSchema,
   PollRequestSchema,
   PollResponseSchema,
+  PollMeetingItemSchema,
   RegisterResponseSchema,
   DaemonRuntimeItemSchema,
   ActivateTokenRuntimeSchema,
@@ -138,6 +139,7 @@ export type {
   TaskApi,
   PollRequest,
   PollResponse,
+  PollMeetingItem,
   RegisterResponse,
   DaemonRuntimeItem,
   ActivateTokenRuntime,
@@ -178,6 +180,8 @@ export { isEmptyHtml } from "./lib/html";
 export { extractThreadId, buildEmailMapKey } from "./lib/context-key";
 export { parseIcs } from "./lib/ics-parser";
 export type { MeetingInfo } from "./lib/ics-parser";
+export { buildMimeMessage } from "./lib/mime";
+export type { MimeAttachment, BuildMimeOptions } from "./lib/mime";
 export {
   addRepeatInterval,
   computeNextScheduledAt,
