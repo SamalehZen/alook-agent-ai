@@ -3,12 +3,14 @@ import { NextRequest } from "next/server";
 
 const mockGetAgent = vi.fn();
 const mockCreateEmail = vi.fn();
+const mockGetConversation = vi.fn();
 const mockCreateConversation = vi.fn();
 const mockCreateMessage = vi.fn();
 const mockCreateMeetingSession = vi.fn();
 const mockFindByKey = vi.fn();
 const mockCreateMapping = vi.fn();
 const mockEnqueueTask = vi.fn();
+const mockGetUser = vi.fn();
 
 vi.mock("@opennextjs/cloudflare", () => ({
   getCloudflareContext: vi.fn(() => ({ env: { DB: {} } })),
@@ -28,6 +30,7 @@ vi.mock("@alook/shared", async () => {
         createEmail: (...args: unknown[]) => mockCreateEmail(...args),
       },
       conversation: {
+        getConversation: (...args: unknown[]) => mockGetConversation(...args),
         createConversation: (...args: unknown[]) => mockCreateConversation(...args),
       },
       message: {
@@ -39,6 +42,9 @@ vi.mock("@alook/shared", async () => {
       conversationMap: {
         findByKey: (...args: unknown[]) => mockFindByKey(...args),
         createMapping: (...args: unknown[]) => mockCreateMapping(...args),
+      },
+      user: {
+        getUser: (...args: unknown[]) => mockGetUser(...args),
       },
     },
   };
@@ -91,6 +97,7 @@ describe("POST /api/email/notify", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateEmail.mockResolvedValue({ id: "e1" });
+    mockCreateMessage.mockResolvedValue({ id: "m1", conversationId: "c1", role: "event", content: "", taskId: null, createdAt: "2026-01-01T00:00:00Z" });
     mockFindByKey.mockResolvedValue(null);
     mockCreateMapping.mockResolvedValue(undefined);
   });
@@ -122,13 +129,14 @@ describe("POST /api/email/notify", () => {
       "a1", "conv_new", "ws1",
       expect.any(String),
       "email_notification",
-      { contextKey: "conv_new" },
+      { contextKey: "conv_new", context: { conversationType: "email_notification" } },
     );
   });
 
-  it("reuses existing conversation when mapping is found", async () => {
+  it("reuses existing conversation when mapping is found (email_notification type)", async () => {
     mockGetAgent.mockResolvedValue({ id: "a1", workspaceId: "ws1", runtimeId: "r1", ownerId: "u1" });
     mockFindByKey.mockResolvedValue("conv_existing");
+    mockGetConversation.mockResolvedValue({ id: "conv_existing", type: "email_notification", userId: "u1" });
     mockEnqueueTask.mockResolvedValue({ id: "t1" });
 
     const res = await POST(makeNotifyReq(baseBody));
@@ -140,7 +148,45 @@ describe("POST /api/email/notify", () => {
       "a1", "conv_existing", "ws1",
       expect.any(String),
       "email_notification",
-      { contextKey: "conv_existing" },
+      { contextKey: "conv_existing", context: { conversationType: "email_notification" } },
+    );
+  });
+
+  it("reuses existing DM conversation and includes dmUser in context", async () => {
+    mockGetAgent.mockResolvedValue({ id: "a1", workspaceId: "ws1", runtimeId: "r1", ownerId: "u1" });
+    mockFindByKey.mockResolvedValue("conv_dm");
+    mockGetConversation.mockResolvedValue({ id: "conv_dm", type: "user_dm_message", userId: "u1" });
+    mockGetUser.mockResolvedValue({ id: "u1", name: "Alice", email: "alice@example.com" });
+    mockEnqueueTask.mockResolvedValue({ id: "t1" });
+
+    const res = await POST(makeNotifyReq(baseBody));
+    expect(res.status).toBe(200);
+
+    expect(mockGetConversation).toHaveBeenCalledWith(expect.anything(), "conv_dm", "ws1");
+    expect(mockGetUser).toHaveBeenCalledWith(expect.anything(), "u1");
+    expect(mockEnqueueTask).toHaveBeenCalledWith(
+      "a1", "conv_dm", "ws1",
+      expect.any(String),
+      "email_notification",
+      { contextKey: "conv_dm", context: { conversationType: "user_dm_message", dmUser: { name: "Alice", email: "alice@example.com" } } },
+    );
+  });
+
+  it("DM conversation without user still enqueues with conversationType", async () => {
+    mockGetAgent.mockResolvedValue({ id: "a1", workspaceId: "ws1", runtimeId: "r1", ownerId: "u1" });
+    mockFindByKey.mockResolvedValue("conv_dm");
+    mockGetConversation.mockResolvedValue({ id: "conv_dm", type: "user_dm_message", userId: "u1" });
+    mockGetUser.mockResolvedValue(null);
+    mockEnqueueTask.mockResolvedValue({ id: "t1" });
+
+    const res = await POST(makeNotifyReq(baseBody));
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueTask).toHaveBeenCalledWith(
+      "a1", "conv_dm", "ws1",
+      expect.any(String),
+      "email_notification",
+      { contextKey: "conv_dm", context: { conversationType: "user_dm_message" } },
     );
   });
 
@@ -212,6 +258,7 @@ describe("POST /api/email/notify", () => {
   it("uses References header thread root for mapping lookup", async () => {
     mockGetAgent.mockResolvedValue({ id: "a1", workspaceId: "ws1", runtimeId: "r1", ownerId: "u1" });
     mockFindByKey.mockResolvedValue("conv_thread");
+    mockGetConversation.mockResolvedValue({ id: "conv_thread", type: "email_notification", userId: "u1" });
     mockEnqueueTask.mockResolvedValue({ id: "t1" });
 
     const bodyWithRefs = {

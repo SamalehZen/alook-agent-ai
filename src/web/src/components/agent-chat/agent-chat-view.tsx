@@ -688,6 +688,9 @@ export function AgentChatView() {
           lastSeqRef.current = Math.max(...incoming.map((m) => m.seq), lastSeqRef.current);
         }
       }
+      if (msg.type === "conversation.message" && msg.conversationId === conversation?.id) {
+        setMessages((prev) => mergeMessages(prev, [msg.message]));
+      }
       if (msg.type === "artifact.uploaded" && msg.conversationId === conversation?.id) {
         setArtifacts((prev) => {
           if (prev.some((a) => a.id === msg.artifact.id)) return prev;
