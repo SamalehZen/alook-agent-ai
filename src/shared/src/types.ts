@@ -93,7 +93,7 @@ export interface CalendarEvent {
 export interface Message {
   id: string;
   conversation_id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "event";
   content: string;
   task_id: string | null;
   attachment_ids: string[] | null;
