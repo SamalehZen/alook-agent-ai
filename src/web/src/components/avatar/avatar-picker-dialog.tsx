@@ -43,7 +43,7 @@ export function AvatarPickerDialog({ config, onChange }: AvatarPickerDialogProps
 
       <DialogContent className="sm:max-w-[720px]">
         <DialogHeader>
-          <DialogTitle>选择头像</DialogTitle>
+          <DialogTitle>Choose Avatar</DialogTitle>
         </DialogHeader>
         <AvatarGenerator
           config={draft}

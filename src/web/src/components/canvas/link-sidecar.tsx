@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Trash2 } from "lucide-react";
+import { AvatarRenderer, parseAvatarUrl } from "@/components/avatar";
 
 interface LinkSidecarProps {
   open: boolean;
@@ -68,14 +69,9 @@ export function LinkSidecar({
 
   const renderAvatar = (agent: Agent | undefined) => {
     if (!agent) return null;
-    if (agent.avatar_url) {
-      return (
-        <img
-          src={agent.avatar_url}
-          alt={agent.name}
-          className="size-8 rounded-xl object-cover shrink-0"
-        />
-      );
+    const avatarConfig = parseAvatarUrl(agent.avatar_url);
+    if (avatarConfig) {
+      return <AvatarRenderer config={avatarConfig} size={32} className="shrink-0 rounded-xl" />;
     }
     return (
       <div className="flex items-center justify-center size-8 rounded-xl bg-secondary text-secondary-foreground text-xs font-medium shrink-0">

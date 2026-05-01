@@ -168,17 +168,17 @@ export function AvatarGenerator({ config, onChange, layout = "vertical" }: Avata
   }, [layout, onChange]);
 
   const renderShapeThumb = (key: string) => (
-    <svg viewBox="0 0 200 200" width="40" height="40">
+    <svg viewBox="0 0 200 200" width="40" height="40" className="dark:invert">
       {Shapes[key]?.render()}
     </svg>
   );
   const renderNoseThumb = (key: string) => (
-    <svg viewBox="-14 -10 28 20" width="36" height="24">
+    <svg viewBox="-14 -10 28 20" width="36" height="24" className="dark:invert">
       {Noses[key]?.render()}
     </svg>
   );
   const renderEyeThumb = (key: string) => (
-    <svg viewBox="-18 -8 36 16" width="44" height="22">
+    <svg viewBox="-18 -8 36 16" width="44" height="22" className="dark:invert">
       {Eyes[key]?.render(8)}
     </svg>
   );
@@ -206,9 +206,9 @@ export function AvatarGenerator({ config, onChange, layout = "vertical" }: Avata
           <circle cx="16" cy="16" r="1.5" fill="currentColor" />
           <circle cx="12" cy="12" r="1.5" fill="currentColor" />
         </svg>
-        随机
+        Random
         {isHorizontal && (
-          <kbd className="ml-1 rounded bg-background/20 px-1.5 py-0.5 text-[10px] font-mono">空格</kbd>
+          <kbd className="ml-1 rounded bg-background/20 px-1.5 py-0.5 text-[10px] font-mono">Space</kbd>
         )}
       </button>
     </div>
@@ -231,7 +231,7 @@ export function AvatarGenerator({ config, onChange, layout = "vertical" }: Avata
               : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
-          ★ 预设
+          ★ Presets
         </button>
         <button
           type="button"
@@ -243,7 +243,7 @@ export function AvatarGenerator({ config, onChange, layout = "vertical" }: Avata
               : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
-          ⚙ 自定义
+          ⚙ Custom
         </button>
       </div>
 
@@ -282,21 +282,21 @@ export function AvatarGenerator({ config, onChange, layout = "vertical" }: Avata
       {tab === "custom" && (
         <div className="flex flex-col gap-4">
           <Cycler
-            label="轮廓"
+            label="Shape"
             keys={SHAPE_KEYS}
             value={config.shape}
             onChange={(v) => setField("shape", v)}
             renderThumb={renderShapeThumb}
           />
           <Cycler
-            label="鼻子"
+            label="Nose"
             keys={NOSE_KEYS}
             value={config.nose}
             onChange={(v) => setField("nose", v)}
             renderThumb={renderNoseThumb}
           />
           <Cycler
-            label="眼睛"
+            label="Eyes"
             keys={EYE_KEYS}
             value={config.eye}
             onChange={(v) => setField("eye", v)}
@@ -306,9 +306,9 @@ export function AvatarGenerator({ config, onChange, layout = "vertical" }: Avata
           {/* Background colors */}
           <div>
             <div className="mb-2 text-xs font-medium text-muted-foreground">
-              背景色
+              Color
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 p-1">
               {BG_COLORS.map((c, i) => (
                 <button
                   key={c.value}

@@ -39,17 +39,17 @@ export function AgentPreviewCard({
   if (isCompact) {
     return (
       <div className="flex items-center gap-2 p-0">
-        {agent.avatar_url ? (
-          <img
-            src={agent.avatar_url}
-            alt={agent.name}
-            className="size-8 rounded-xl object-cover shrink-0"
-          />
-        ) : (
-          <div className="flex items-center justify-center size-8 rounded-xl bg-secondary text-secondary-foreground text-xs font-medium shrink-0">
-            {agent.name.charAt(0).toUpperCase()}
-          </div>
-        )}
+        {(() => {
+          const avatarConfig = parseAvatarUrl(agent.avatar_url);
+          if (avatarConfig) {
+            return <AvatarRenderer config={avatarConfig} size={32} className="shrink-0 rounded-xl" />;
+          }
+          return (
+            <div className="flex items-center justify-center size-8 rounded-xl bg-secondary text-secondary-foreground text-xs font-medium shrink-0">
+              {agent.name.charAt(0).toUpperCase()}
+            </div>
+          );
+        })()}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium truncate max-w-[140px]">{agent.name}</p>
