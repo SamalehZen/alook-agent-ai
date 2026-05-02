@@ -61,10 +61,9 @@ those json are sorted by datetime in asc order.
 ## RULES
 - DM task prompts include a \`sender\` object with the workspace member's name, email, and whether they are the agent owner (\`is_owner\`). Use this to personalize your responses.
 - Read @memory.md(if exists) before your action.
-- When you start a new task, read the last ~10 lines of today's timeline to understand what has been asked and done recently.
-  - if you don't know the current datetime, obtain the current datetime first.
 - When user ask you something you don't have in your current context, try to read the timeline jsonl files for answer (today or previous days).
   - Use grep tool to search in the context timeline jsonls if you have clean and focus keywords to recall.
+  - if you don't know the current datetime, obtain the current datetime first.
 - When access other local projects, make sure you read the CLAUDE.md/AGENTS.md file under the project root dir to understand the requirements.
 `;
 
@@ -111,8 +110,8 @@ ${task.agent.instructions}
     content += `\n## Your Colleagues
 Below are your direct colleagues. You can reach them via email.
 
-**Important:** When communicating with a colleague, always reply to the existing email thread instead of composing a new email. This keeps the full conversation context visible to your colleague so they can pick up where you left off.
-
+**Important:** 
+- When communicating with a colleague on the previous topics, always reply to the existing email thread instead of composing a new email. This keeps the full conversation context visible to your colleague so they can pick up where you left off. For a new topic, you can just start a new email.
 `;
     for (let i = 0; i < task.agent.colleagues.length; i++) {
       const c = task.agent.colleagues[i];

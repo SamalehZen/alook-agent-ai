@@ -7,6 +7,37 @@ import { withAuth } from "@/lib/middleware/auth";
 import { withWorkspaceMember } from "@/lib/middleware/workspace";
 import { writeJSON, writeError, parseBody } from "@/lib/middleware/helpers";
 import { emailToResponse } from "@/lib/api/responses";
+import { broadcastToUser } from "@/lib/broadcast";
+
+async function broadcastEmailSentEvent(
+  db: Parameters<typeof queries.message.createMessage>[0],
+  conversationId: string,
+  ownerId: string,
+  agentId: string,
+  to: string,
+  subject: string,
+) {
+  const eventContent = `Email sent to ${to}: ${subject}`;
+  const eventMsg = await queries.message.createMessage(db, {
+    conversationId,
+    role: "event",
+    content: eventContent,
+  });
+  broadcastToUser(ownerId, {
+    type: "conversation.message",
+    conversationId,
+    message: {
+      id: eventMsg.id,
+      conversation_id: eventMsg.conversationId,
+      role: eventMsg.role as "event",
+      content: eventMsg.content,
+      task_id: eventMsg.taskId,
+      attachment_ids: null,
+      created_at: eventMsg.createdAt,
+    },
+  }).catch(() => {});
+  broadcastToUser(ownerId, { type: "email.sent", agentId }).catch(() => {});
+}
 
 export const POST = withAuth(async (req: NextRequest, ctx) => {
   const ws = await withWorkspaceMember(req, ctx);
@@ -149,6 +180,9 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
             conversationId: validatedConversationId,
           });
         }
+        if (agent.ownerId) {
+          await broadcastEmailSentEvent(db, validatedConversationId, agent.ownerId, body.agentId, body.to, body.subject);
+        }
       }
 
       return writeJSON(emailToResponse(email));
@@ -220,6 +254,9 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
         workspaceId: ws.workspaceId,
         conversationId: validatedConversationId,
       });
+    }
+    if (agent.ownerId) {
+      await broadcastEmailSentEvent(db, validatedConversationId, agent.ownerId, body.agentId, body.to, body.subject);
     }
   }
 

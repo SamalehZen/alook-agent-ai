@@ -243,6 +243,7 @@ export type WsMessage =
   | { type: "task.updated"; taskId: string; agentId: string; status: string }
   | { type: "task.messages"; taskId: string; messages: TaskMessage[] }
   | { type: "email.received"; agentId: string }
+  | { type: "email.sent"; agentId: string }
   | { type: "artifact.uploaded"; conversationId: string; artifact: Artifact }
   | { type: "followup.dispatched"; conversationId: string; message: Message; task: TaskApi }
   | { type: "followup.created"; conversationId: string; message: Message }

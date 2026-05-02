@@ -42,7 +42,14 @@ export default function AgentEmailPage() {
   const agent = agents.find((a) => a.id === agentId);
   const isMobile = useIsMobile();
 
-  const [folder, setFolder] = useState<Folder>("inbox");
+  const [folder, _setFolder] = useState<Folder>("inbox");
+  const switchFolder = useCallback((f: Folder) => {
+    _setFolder(f);
+    setEmails([]);
+    setSelectedId(null);
+    setBody(null);
+    setComposing(false);
+  }, []);
   const [emails, setEmails] = useState<Email[]>([]);
   const unreadCount = useMemo(() => emails.filter(e => e.status === "unread").length, [emails]);
   const [loading, setLoading] = useState(true);
@@ -96,15 +103,15 @@ export default function AgentEmailPage() {
   }, [agentId, workspaceId]);
 
   useEffect(() => {
-    setSelectedId(null);
-    setBody(null);
-    setComposing(false);
     loadEmails(folder, activeAddress);
   }, [folder, activeAddress, loadEmails]);
 
   useEffect(() => {
     return subscribeWs((msg) => {
-      if (msg.type === "email.received" && msg.agentId === agentId) {
+      if (
+        (msg.type === "email.received" && msg.agentId === agentId) ||
+        (msg.type === "email.sent" && msg.agentId === agentId)
+      ) {
         loadEmails(folder, activeAddress);
       }
     });
@@ -188,7 +195,7 @@ export default function AgentEmailPage() {
       await sendEmail(agentId, to, subject, htmlBody, workspaceId, attachments.length > 0 ? attachments : undefined, threading, activeAccountId);
       toast.success("Email sent");
       setComposing(false);
-      setFolder("sent");
+      switchFolder("sent");
       return true;
     } catch {
       toast.error("Failed to send email");
@@ -336,7 +343,7 @@ export default function AgentEmailPage() {
       <nav className="flex flex-col gap-0.5 px-2">
         <button
           type="button"
-          onClick={() => setFolder("inbox")}
+          onClick={() => switchFolder("inbox")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer",
             folder === "inbox"
@@ -354,7 +361,7 @@ export default function AgentEmailPage() {
         </button>
         <button
           type="button"
-          onClick={() => setFolder("sent")}
+          onClick={() => switchFolder("sent")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer",
             folder === "sent"
@@ -367,7 +374,7 @@ export default function AgentEmailPage() {
         </button>
         <button
           type="button"
-          onClick={() => setFolder("untrust")}
+          onClick={() => switchFolder("untrust")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer",
             folder === "untrust"
@@ -419,17 +426,26 @@ export default function AgentEmailPage() {
           >
             <div className="flex items-center justify-between gap-2 mb-0.5">
               <p className={cn(
-                "text-sm truncate flex items-center gap-1.5",
+                "text-sm truncate",
                 email.status === "unread" ? "font-semibold" : "font-medium text-muted-foreground"
               )}>
-                {email.status === "unread" && (
-                  <span className="size-1.5 rounded-full bg-blue-500 shrink-0" />
-                )}
                 {folder === "sent" ? email.to_email : email.from_email}
               </p>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {relativeTime(email.created_at)}
-              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {folder !== "sent" && (
+                  <span className={cn(
+                    "text-[10px] rounded-full px-1.5 py-0.5 leading-none font-medium",
+                    email.status === "unread"
+                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    {email.status === "unread" ? "unread" : "read"}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {relativeTime(email.created_at)}
+                </span>
+              </div>
             </div>
             <p className={cn(
               "text-[13px] truncate",
@@ -714,7 +730,7 @@ export default function AgentEmailPage() {
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setFolder(f.id)}
+                onClick={() => switchFolder(f.id)}
                 className={cn(
                   "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
                   folder === f.id
