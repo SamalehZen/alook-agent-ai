@@ -18,10 +18,27 @@ interface Feature {
 const features: Feature[] = [
   {
     number: "I",
-    title: "Email",
-    spec: "OUTLOOK · GMAIL · ANYWHERE · ANYTIME",
+    title: "Collaboration",
+    spec: "DEFINE YOUR COMPANY STRUCTURE",
     description:
-      "Talk to your agent from any email client. Forward a bug report, CC it on a thread — it reads, reasons, and replies just like a teammate would.",
+      "You're the CEO. Assign agents to roles — dev, ops, research — and let them coordinate. Define your org chart, and Alook keeps everyone in sync.",
+    terminal: [
+      "▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓",
+      "▓  YOU  ▓░░░░░░░░░░░▓  DEV  ▓░░░░░░░░░░░▓  OPS  ▓",
+      "▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓",
+      "    ░                   ░                   ░    ",
+      "    ░                   ░                   ░    ",
+      "▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓",
+      "▓  R&D  ▓░░░░░░░░░░░▓ SALES ▓░░░░░░░░░░░▓  BIZ  ▓",
+      "▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓           ▓▓▓▓▓▓▓▓▓",
+    ],
+  },
+  {
+    number: "II",
+    title: "Traceable",
+    spec: "EVERY INTERACTION · RECORDED · AUDITABLE",
+    description:
+      "Agents communicate through email and work on your local machine. Every instruction, decision, and reply is recorded — in your inbox or in local files. Full accountability, no black boxes.",
     terminal: [
       "█████████████████████████",
       "█▓▒                   ▒▓█",
@@ -36,7 +53,7 @@ const features: Feature[] = [
     ],
   },
   {
-    number: "II",
+    number: "III",
     title: "Calendar",
     spec: "SHOWS UP AT THE RIGHT TIME",
     description:
@@ -54,11 +71,11 @@ const features: Feature[] = [
     ],
   },
   {
-    number: "III",
+    number: "IV",
     title: "Always-On",
-    spec: "NOT A TOOL — A TEAMMATE, 24/7",
+    spec: "YOUR COMPANY NEVER SLEEPS",
     description:
-      "A persistent daemon on your machine keeps your agent running around the clock — picking up work, executing tasks, even while you sleep.",
+      "A persistent daemon keeps every agent running around the clock — picking up tasks, responding to emails, shipping work while you sleep.",
     terminal: [
       "                         ",
       "                         ",
@@ -73,22 +90,22 @@ const features: Feature[] = [
     ],
   },
   {
-    number: "IV",
-    title: "Memory",
-    spec: "FULLY LOCAL · ALWAYS REMEMBERS",
+    number: "V",
+    title: "Self-Learning",
+    spec: "EVERY TASK MAKES THE TEAM SMARTER",
     description:
-      "Context from past conversations, decisions, and preferences — all stored on your machine, building up over time. Nothing leaves, nothing fades.",
+      "Agents build memory from past work — decisions, preferences, context. Your company gets sharper with every conversation, every task, every day.",
     terminal: [
-      "           ▒░░░░░░       ",
-      "           ░             ",
-      "    ▒▒▒▒▒▒ ░             ",
-      "    ▒▒▒▒▒▒▒▓             ",
-      "    ▒▒▒▒▒▒ ░             ",
-      "           ░  ▓▓▓▓▓▓     ",
-      "           █▓▓▓▓▓▓█      ",
-      "           ░  ▓▓▓▓▓▓     ",
-      " █████████ ░             ",
-      " ███████████             ",
+      "                         ",
+      "            █            ",
+      "           ▓█▓           ",
+      "          ▒▓█▓▒          ",
+      "         ░▒▓█▓▒░         ",
+      "        ░░▒▓█▓▒░░        ",
+      "       ░░░▒▓█▓▒░░░       ",
+      "      ░░░░▒▓█▓▒░░░░      ",
+      "     ░░░░░▒▓█▓▒░░░░░     ",
+      "                         ",
     ],
   },
 ];
@@ -151,7 +168,7 @@ export function FeatureShowcase() {
             fontSize: "clamp(1.75rem, 4vw, 3rem)",
           }}
         >
-          Transform Agent into a Living Colleague
+          Your Company, Your Agents
         </h2>
         <p
           className="mx-auto mt-3 max-w-xl"
@@ -161,8 +178,8 @@ export function FeatureShowcase() {
             fontSize: "0.85rem",
           }}
         >
-          Your local agent is the brain. Alook wraps it in everything else
-          it needs to show up, stay present, and work like a real teammate.
+          Define roles, assign agents, and let them run. Alook is the
+          orchestration layer that turns agents into a company.
         </p>
       </div>
 

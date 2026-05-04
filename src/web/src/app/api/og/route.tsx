@@ -129,7 +129,7 @@ function TypewriterIllustration() {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
-    const title = searchParams.get("title") || "Your Personal Colleagues";
+    const title = searchParams.get("title") || "Your Personal Company";
 
     const fontData = await loadFont();
 
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
               {title}
             </div>
             <div style={{ display: "flex", fontSize: 22, color: "#8a7e6e", marginTop: 20 }}>
-              Give your AI agents an email. Let them work for you.
+              AI agents that collaborate, stay always on, and learn.
             </div>
           </div>
 

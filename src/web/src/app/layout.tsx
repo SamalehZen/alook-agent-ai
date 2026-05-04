@@ -67,7 +67,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Alook — Personal Colleagues",
+    default: "Alook — Personal Company",
     template: "%s — Alook",
   },
   description:
@@ -87,25 +87,25 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Alook",
-    title: "Alook — Personal Colleague",
+    title: "Alook — Personal Company",
     description:
       "Your AI agents, always on. Give them an email, let them work for you around the clock.",
     url: SITE_URL,
     images: [
       {
-        url: "/api/og?title=Your Personal Colleagues",
+        url: "/api/og?title=Your Personal Company",
         width: 1200,
         height: 630,
-        alt: "Alook — Your Personal Colleagues",
+        alt: "Alook — Your Personal Company",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Alook — Your Personal Colleagues",
+    title: "Alook — Your Personal Company",
     description:
       "Your AI agents, always on. Give them an email, let them work for you around the clock.",
-    images: ["/api/og?title=Your Personal Colleagues"],
+    images: ["/api/og?title=Your Personal Company"],
   },
   alternates: {
     canonical: SITE_URL,

@@ -4,9 +4,9 @@ import { HomePage } from "@/components/home/home-page";
 import { WorkspaceRedirect } from "@/components/workspace-redirect";
 
 export const metadata: Metadata = {
-  title: "Alook — Your Personal Colleagues",
+  title: "Alook — Your Personal Company",
   description:
-    "Your AI agents, always on. Give them an email, let them work for you around the clock.",
+    "Run your personal company — AI agents that collaborate, stay always on, and learn from every task.",
   alternates: { canonical: "https://alook.ai" },
 };
 
@@ -19,15 +19,15 @@ const faqJsonLd = {
       name: "What is Alook?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Alook is a platform that gives your AI agents an email address and keeps them always on. They can receive tasks via email, process them autonomously, and respond — around the clock.",
+        text: "Alook is the orchestration layer for your personal company. It lets you define roles, assign AI agents, and keep them collaborating, always on, and self-learning — like running a company with an AI workforce.",
       },
     },
     {
       "@type": "Question",
-      name: "How do I communicate with my AI agent?",
+      name: "How do I communicate with my AI agents?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Each agent gets its own @alook.ai email address. You can send instructions via email, and the agent will process them and reply. You can also interact through the Alook dashboard.",
+        text: "Each agent gets its own @alook.ai email address. You can send instructions via email, and agents collaborate on tasks and reply. You can also manage your company through the Alook dashboard.",
       },
     },
     {
@@ -35,7 +35,7 @@ const faqJsonLd = {
       name: "Is Alook free to use?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes, Alook offers a free tier to get started with Your Personal Colleagues.",
+        text: "Yes, Alook offers a free tier to get started with Your Personal Company.",
       },
     },
   ],

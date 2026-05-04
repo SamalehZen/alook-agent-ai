@@ -96,7 +96,7 @@ export function HeroSection({ isLoggedIn }: { isLoggedIn: boolean }) {
               color: "var(--landing-text-muted)",
             }}
           >
-            Your Personal Colleague
+            Your Personal Company
           </span>
         </div>
 
@@ -114,7 +114,7 @@ export function HeroSection({ isLoggedIn }: { isLoggedIn: boolean }) {
                 letterSpacing: "-0.01em",
               }}
             >
-              Your next colleague lives on your machine.
+              Run Your Personal Company
             </h1>
             <p
               ref={sublineRef}
@@ -125,8 +125,8 @@ export function HeroSection({ isLoggedIn }: { isLoggedIn: boolean }) {
                 fontSize: "clamp(14px, 2vw, 20px)",
               }}
             >
-              A digital colleague with its own email, calendar, and memory —
-              powered by your local agents.
+              Agents that collaborate, stay always on, and learn from every
+              task — orchestrated by Alook.
             </p>
           </div>
 
@@ -141,10 +141,9 @@ export function HeroSection({ isLoggedIn }: { isLoggedIn: boolean }) {
         {/* Specs */}
         <div className="hero-specs mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {[
-            "Email",
-            "Calendar",
+            "Collaboration",
             "Always-On",
-            "Memory",
+            "Self-Learning",
           ].map((spec) => (
             <span
               key={spec}

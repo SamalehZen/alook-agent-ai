@@ -59,7 +59,7 @@ export function MarketingFooter() {
               color: "var(--landing-text-muted)",
             }}
           >
-            Your personal colleague
+            Your Personal Company
           </span>
         </div>
 
