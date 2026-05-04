@@ -152,8 +152,8 @@ export function LinkSidecar({
           <p className="text-sm font-medium">
             {sourceAgent?.name ?? "Agent"} and {targetAgent?.name ?? "Agent"}
           </p>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Collaboration Instructions
+          <p className="text-xs font-medium text-muted-foreground tracking-wide mb-2">
+            use @ to mention agent
           </p>
         </SheetHeader>
 
