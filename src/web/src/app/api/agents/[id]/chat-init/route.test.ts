@@ -71,6 +71,13 @@ vi.mock("@/lib/middleware/workspace", () => ({
   withWorkspaceMember: vi.fn(async () => ({ workspaceId: "w1" })),
 }));
 
+const mockDispatchNextBufferedMessage = vi.fn().mockResolvedValue(null);
+vi.mock("@/lib/services/task", () => ({
+  TaskService: vi.fn(() => ({
+    dispatchNextBufferedMessage: mockDispatchNextBufferedMessage,
+  })),
+}));
+
 vi.mock("@/lib/api/responses", () => ({
   conversationToResponse: vi.fn((c: any) => ({
     id: c.id,

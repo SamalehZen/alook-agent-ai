@@ -350,7 +350,7 @@ describe("replaceOptimisticBuffered", () => {
     expect(result.find((m) => m.id === "temp-123")).toBeUndefined();
   });
 
-  it("full race simulation: optimistic → WS add → HTTP replace produces no duplicates", () => {
+  it("full race simulation: optimistic → WS add (skipped) → HTTP replace produces no duplicates", () => {
     const optimisticId = "temp-1716000000000";
     const optimistic = msg(optimisticId, "2024-01-02T00:00:00Z", "user", "follow-up");
     const real = msg("PjddM86V1he-JYuedi9tY", "2024-01-02T00:00:00Z", "user", "follow-up");
@@ -361,9 +361,9 @@ describe("replaceOptimisticBuffered", () => {
     state = [...state, optimistic];
     expect(state).toHaveLength(2);
 
-    // Step 2: WebSocket delivers real message first
+    // Step 2: WebSocket delivers real message — skipped because temp entry with same timestamp exists
     state = addBufferedIfNew(state, real);
-    expect(state).toHaveLength(3);
+    expect(state).toHaveLength(2);
 
     // Step 3: HTTP response arrives, replaces optimistic
     state = replaceOptimisticBuffered(state, optimisticId, real);
