@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, CheckCircle2, ExternalLink, File as FileIcon, GitBranch, Loader2, MessageSquare, Plus, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, CircleDot, ExternalLink, File as FileIcon, GitBranch, Loader2, MessageSquare, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import type { Agent, Artifact, Issue, Message, WsMessage } from "@alook/shared";
 import { useWorkspace } from "@/contexts/workspace-context";
@@ -461,10 +461,10 @@ export default function IssuesPage() {
               {Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
             </div>
           ) : activeIssues.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">No active issues. Create one to get started.</p>
-              </div>
+            <div className="flex flex-col items-center justify-center h-full animate-[fade-up_400ms_ease-out_both]">
+              <CircleDot className="size-8 text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground">No active issues</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Create one to get started.</p>
             </div>
           ) : (
             <div className="grid h-full grid-cols-3 gap-4">
@@ -524,8 +524,10 @@ export default function IssuesPage() {
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
           </div>
         ) : activeIssues.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-muted-foreground">No active issues. Create one to get started.</p>
+          <div className="flex flex-col items-center justify-center h-full animate-[fade-up_400ms_ease-out_both]">
+            <CircleDot className="size-8 text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">No active issues</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Create one to get started.</p>
           </div>
         ) : (
           <div className="space-y-4">
