@@ -166,7 +166,7 @@ function MessageRow({ message }: { message: Message }) {
         <span className="capitalize">{message.role}</span>
         <span>{new Date(message.created_at).toLocaleString()}</span>
       </div>
-      <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+      <div className="prose prose-sm dark:prose-invert max-w-none text-sm break-words">
         <Streamdown>{message.content}</Streamdown>
       </div>
     </div>
@@ -627,7 +627,7 @@ export default function IssuesPage() {
             ) : (
               <div className="space-y-5">
                 {detail.issue.description && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-sm break-words">
                     <Streamdown>{detail.issue.description}</Streamdown>
                   </div>
                 )}
