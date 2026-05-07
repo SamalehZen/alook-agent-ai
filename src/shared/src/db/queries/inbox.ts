@@ -10,7 +10,7 @@ export async function listUnreadConversations(
 ) {
   const limit = opts?.limit ?? 30;
   const beforeClause = opts?.before
-    ? sql`AND m_latest.created_at < ${opts.before}`
+    ? sql`AND t.completed_at < ${opts.before}`
     : sql``;
 
   const rows = await db.all<{
@@ -25,26 +25,23 @@ export async function listUnreadConversations(
     agent_avatar_url: string | null;
     root_task_status: string | null;
   }>(sql`
-    WITH root_tasks AS (
-      SELECT t.conversation_id, t.prompt, t.status, t.created_at,
-             ROW_NUMBER() OVER (PARTITION BY t.conversation_id ORDER BY t.created_at DESC) AS rn
-      FROM agent_task_queue t
-      WHERE t.parent_task_id IS NULL
-        AND t.trace_id IS NOT NULL
-        AND t.type = 'user_dm_message'
-        AND t.status IN ('completed', 'failed')
-    )
     SELECT c.id,
            c.agent_id,
            c.title,
            c.channel,
            m_latest.content AS latest_response,
-           m_latest.created_at AS latest_response_at,
-           rt.prompt AS root_prompt,
+           t.completed_at AS latest_response_at,
+           t.prompt AS root_prompt,
            a.name AS agent_name,
            a.avatar_url AS agent_avatar_url,
-           rt.status AS root_task_status
-    FROM conversation c
+           t.status AS root_task_status
+    FROM agent_task_queue t
+    INNER JOIN conversation c
+      ON c.id = t.conversation_id
+      AND c.user_id = ${userId}
+      AND c.workspace_id = ${workspaceId}
+    LEFT JOIN conversation_read_state crs
+      ON crs.conversation_id = c.id AND crs.user_id = ${userId}
     INNER JOIN message m_latest
       ON m_latest.conversation_id = c.id
       AND m_latest.role = 'assistant'
@@ -56,17 +53,24 @@ export async function listUnreadConversations(
           AND status = 'active'
         ORDER BY created_at DESC LIMIT 1
       )
-    INNER JOIN root_tasks rt
-      ON rt.conversation_id = c.id AND rt.rn = 1
-    LEFT JOIN conversation_read_state crs
-      ON crs.conversation_id = c.id AND crs.user_id = ${userId}
     LEFT JOIN agent a
       ON a.id = c.agent_id AND a.workspace_id = c.workspace_id
-    WHERE c.user_id = ${userId}
-      AND c.workspace_id = ${workspaceId}
-      AND m_latest.created_at > COALESCE(crs.last_read_at, '1970-01-01T00:00:00.000Z')
+    WHERE t.parent_task_id IS NULL
+      AND t.trace_id IS NOT NULL
+      AND t.type = 'user_dm_message'
+      AND t.status IN ('completed', 'failed')
+      AND t.completed_at > COALESCE(crs.last_read_at, '1970-01-01T00:00:00.000Z')
+      AND t.id = (
+        SELECT id FROM agent_task_queue
+        WHERE conversation_id = c.id
+          AND parent_task_id IS NULL
+          AND trace_id IS NOT NULL
+          AND type = 'user_dm_message'
+          AND status IN ('completed', 'failed')
+        ORDER BY completed_at DESC LIMIT 1
+      )
       ${beforeClause}
-    ORDER BY m_latest.created_at DESC
+    ORDER BY t.completed_at DESC
     LIMIT ${limit + 1}
   `);
 
@@ -82,29 +86,19 @@ export async function getUnreadCount(
   workspaceId: string,
 ) {
   const rows = await db.all<{ count: number }>(sql`
-    SELECT COUNT(*) AS count
-    FROM conversation c
-    WHERE c.user_id = ${userId}
+    SELECT COUNT(DISTINCT t.conversation_id) AS count
+    FROM agent_task_queue t
+    INNER JOIN conversation c
+      ON c.id = t.conversation_id
+      AND c.user_id = ${userId}
       AND c.workspace_id = ${workspaceId}
-      AND EXISTS (
-        SELECT 1 FROM agent_task_queue t
-        WHERE t.conversation_id = c.id
-          AND t.parent_task_id IS NULL
-          AND t.trace_id IS NOT NULL
-          AND t.type = 'user_dm_message'
-          AND t.status IN ('completed', 'failed')
-      )
-      AND EXISTS (
-        SELECT 1 FROM message m
-        WHERE m.conversation_id = c.id
-          AND m.role = 'assistant'
-          AND m.status = 'active'
-          AND m.created_at > COALESCE(
-            (SELECT last_read_at FROM conversation_read_state
-             WHERE conversation_id = c.id AND user_id = ${userId}),
-            '1970-01-01T00:00:00.000Z'
-          )
-      )
+    LEFT JOIN conversation_read_state crs
+      ON crs.conversation_id = t.conversation_id AND crs.user_id = ${userId}
+    WHERE t.parent_task_id IS NULL
+      AND t.trace_id IS NOT NULL
+      AND t.type = 'user_dm_message'
+      AND t.status IN ('completed', 'failed')
+      AND t.completed_at > COALESCE(crs.last_read_at, '1970-01-01T00:00:00.000Z')
   `);
 
   return rows[0]?.count ?? 0;
