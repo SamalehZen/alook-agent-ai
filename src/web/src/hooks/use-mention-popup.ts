@@ -1,12 +1,14 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react"
-import type { Agent } from "@alook/shared"
+import type { Agent, AgentLink } from "@alook/shared"
 
 export interface MentionPopupState {
   isOpen: boolean
   query: string
   selectedIndex: number
   anchorPos: { top: number; left: number }
-  filteredAgents: Agent[]
+  relatedAgents: Agent[]
+  otherAgents: Agent[]
+  allAgents: Agent[]
   handleMentionKeyDown: (e: React.KeyboardEvent) => boolean
   selectAgent: (agent: Agent) => void
 }
@@ -16,6 +18,8 @@ interface UseMentionPopupParams {
   caretIndex: number | null
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
   agents: Agent[]
+  agentLinks: AgentLink[]
+  currentAgentId: string
   onInputChange: (value: string) => void
 }
 
@@ -80,6 +84,8 @@ export function useMentionPopup({
   caretIndex,
   textareaRef,
   agents,
+  agentLinks,
+  currentAgentId,
   onInputChange,
 }: UseMentionPopupParams): MentionPopupState {
   const [isOpen, setIsOpen] = useState(false)
@@ -88,23 +94,51 @@ export function useMentionPopup({
   const [anchorPos, setAnchorPos] = useState({ top: 0, left: 0 })
   const triggerStartRef = useRef<number | null>(null)
 
-  const filteredAgents = useMemo(() => {
-    if (!isOpen) return []
-    if (!query) return agents.slice(0, 20)
-    const q = query.toLowerCase()
-    const startsWith: Agent[] = []
-    const includes: Agent[] = []
-    for (const a of agents) {
-      const name = a.name.toLowerCase()
-      if (name.startsWith(q)) startsWith.push(a)
-      else if (name.includes(q)) includes.push(a)
+  const relatedAgentIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const link of agentLinks) {
+      if (link.source_agent_id === currentAgentId) ids.add(link.target_agent_id)
+      if (link.target_agent_id === currentAgentId) ids.add(link.source_agent_id)
     }
-    return [...startsWith, ...includes]
-  }, [isOpen, query, agents])
+    return ids
+  }, [agentLinks, currentAgentId])
+
+  const { relatedAgents, otherAgents, allAgents } = useMemo(() => {
+    if (!isOpen) return { relatedAgents: [], otherAgents: [], allAgents: [] }
+
+    const filterByQuery = (list: Agent[]) => {
+      if (!query) return list.slice(0, 20)
+      const q = query.toLowerCase()
+      const startsWith: Agent[] = []
+      const includes: Agent[] = []
+      for (const a of list) {
+        const name = a.name.toLowerCase()
+        if (name.startsWith(q)) startsWith.push(a)
+        else if (name.includes(q)) includes.push(a)
+      }
+      return [...startsWith, ...includes]
+    }
+
+    const related: Agent[] = []
+    const other: Agent[] = []
+    for (const a of agents) {
+      if (relatedAgentIds.has(a.id)) related.push(a)
+      else other.push(a)
+    }
+
+    const filteredRelated = filterByQuery(related)
+    const filteredOther = filterByQuery(other)
+
+    return {
+      relatedAgents: filteredRelated,
+      otherAgents: filteredOther,
+      allAgents: [...filteredRelated, ...filteredOther],
+    }
+  }, [isOpen, query, agents, relatedAgentIds])
 
   useEffect(() => {
     setSelectedIndex(0)
-  }, [filteredAgents.length, query])
+  }, [allAgents.length, query])
 
   useEffect(() => {
     if (caretIndex === null) {
@@ -148,22 +182,22 @@ export function useMentionPopup({
   }, [input, caretIndex, textareaRef, onInputChange])
 
   const handleMentionKeyDown = useCallback((e: React.KeyboardEvent): boolean => {
-    if (!isOpen || filteredAgents.length === 0) return false
+    if (!isOpen || allAgents.length === 0) return false
     if (e.nativeEvent.isComposing) return false
 
     if (e.key === "ArrowDown") {
       e.preventDefault()
-      setSelectedIndex(i => (i + 1) % filteredAgents.length)
+      setSelectedIndex(i => (i + 1) % allAgents.length)
       return true
     }
     if (e.key === "ArrowUp") {
       e.preventDefault()
-      setSelectedIndex(i => (i - 1 + filteredAgents.length) % filteredAgents.length)
+      setSelectedIndex(i => (i - 1 + allAgents.length) % allAgents.length)
       return true
     }
     if (e.key === "Enter") {
       e.preventDefault()
-      selectAgent(filteredAgents[selectedIndex])
+      selectAgent(allAgents[selectedIndex])
       return true
     }
     if (e.key === "Escape") {
@@ -172,14 +206,16 @@ export function useMentionPopup({
       return true
     }
     return false
-  }, [isOpen, filteredAgents, selectedIndex, selectAgent])
+  }, [isOpen, allAgents, selectedIndex, selectAgent])
 
   return {
     isOpen,
     query,
     selectedIndex,
     anchorPos,
-    filteredAgents,
+    relatedAgents,
+    otherAgents,
+    allAgents,
     handleMentionKeyDown,
     selectAgent,
   }

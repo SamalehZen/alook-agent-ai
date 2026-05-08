@@ -20,6 +20,7 @@ import {
   listAgentActiveTaskCounts,
   listWorkspaceActiveTasks,
   listAgentPins,
+  listAgentLinks,
   pinAgent as pinAgentApi,
   unpinAgent as unpinAgentApi,
   reorderAgentPins,
@@ -30,6 +31,7 @@ import type { AgentRuntime as Runtime } from "@alook/shared";
 import { toast } from "sonner";
 import type {
   Agent,
+  AgentLink,
   CreateAgentRequest,
   UpdateAgentRequest,
   WsMessage,
@@ -42,6 +44,7 @@ type WsSubscriber = (msg: WsMessage) => void;
 interface AgentContextValue {
   workspaceId: string;
   agents: Agent[];
+  agentLinks: AgentLink[];
   runtimes: Runtime[];
   loading: boolean;
   activeTaskCounts: Record<string, number>;
@@ -83,6 +86,7 @@ export function AgentProvider({
   const [activeTaskCounts, setActiveTaskCounts] = useState<Record<string, number>>({});
   const [activeTaskDetails, setActiveTaskDetails] = useState<WorkspaceActiveTask[]>([]);
   const hasActiveTasksRef = useRef(false);
+  const [agentLinks, setAgentLinks] = useState<AgentLink[]>([]);
   const [pins, setPins] = useState<Map<string, { created_at: string; position: number }>>(new Map());
   const [unpinnedOrder, setUnpinnedOrder] = useState<Map<string, number>>(new Map());
   const loadedRef = useRef(false);
@@ -142,13 +146,15 @@ export function AgentProvider({
 
   const reload = useCallback(async () => {
     try {
-      const [a, r, pinsData] = await Promise.all([
+      const [a, r, pinsData, links] = await Promise.all([
         listAgents(workspaceId),
         listRuntimes(workspaceId),
         listAgentPins(workspaceId),
+        listAgentLinks(workspaceId),
       ]);
       setAgents(a);
       setRuntimes(r);
+      setAgentLinks(links);
       setPins(new Map(pinsData.pins.map((pin) => [pin.agent_id, { created_at: pin.created_at, position: pin.position }])));
       setUnpinnedOrder(new Map(pinsData.sidebar_order.map((o) => [o.agent_id, o.position])));
     } catch (err) {
@@ -349,6 +355,7 @@ export function AgentProvider({
       value={{
         workspaceId,
         agents,
+        agentLinks,
         runtimes,
         loading,
         activeTaskCounts,

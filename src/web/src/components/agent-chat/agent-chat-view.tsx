@@ -325,7 +325,7 @@ export function AgentChatView() {
   const params = useParams();
   const searchParams = useSearchParams();
   const { workspaceId } = useWorkspace();
-  const { agents, activeTaskCounts, subscribeWs } = useAgentContext();
+  const { agents, agentLinks, activeTaskCounts, subscribeWs } = useAgentContext();
   const { refresh: refreshInboxCount } = useInboxCount();
   const { activeChannel, loading: channelLoading } = useChannel();
   const agentId = params.id as string;
@@ -402,6 +402,8 @@ export function AgentChatView() {
     caretIndex,
     textareaRef,
     agents: otherAgents,
+    agentLinks,
+    currentAgentId: agentId,
     onInputChange: setInput,
   });
 
@@ -1517,7 +1519,8 @@ export function AgentChatView() {
             )}
             <MentionPopup
               isOpen={mentionPopup.isOpen}
-              agents={mentionPopup.filteredAgents}
+              relatedAgents={mentionPopup.relatedAgents}
+              otherAgents={mentionPopup.otherAgents}
               selectedIndex={mentionPopup.selectedIndex}
               onSelect={mentionPopup.selectAgent}
               anchorPos={mentionPopup.anchorPos}
