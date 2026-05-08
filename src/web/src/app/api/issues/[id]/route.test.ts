@@ -9,6 +9,7 @@ const mockCreateMessage = vi.fn();
 const mockListArtifactsByConversation = vi.fn();
 const mockListComments = vi.fn();
 const mockCreateComment = vi.fn();
+const mockGetTask = vi.fn();
 
 vi.mock("@opennextjs/cloudflare", () => ({
   getCloudflareContext: vi.fn(() => ({ env: { DB: {} } })),
@@ -28,7 +29,7 @@ vi.mock("@alook/shared", async () => {
         deleteIssue: (...a: unknown[]) => mockDeleteIssue(...a),
       },
       task: {
-        getTask: vi.fn().mockResolvedValue(null),
+        getTask: (...a: unknown[]) => mockGetTask(...a),
       },
       message: { createMessage: (...a: unknown[]) => mockCreateMessage(...a) },
       issueComment: {
@@ -58,6 +59,19 @@ vi.mock("@/lib/middleware/workspace", () => ({
 vi.mock("@/lib/api/responses", () => ({
   issueToResponse: (i: any) => ({ id: i.id, status: i.status, conversation_id: i.conversationId }),
   messageToResponse: (m: any) => ({ id: m.id, role: m.role, content: m.content }),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  log: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+const mockCancelActiveTask = vi.fn();
+const mockCancelTrace = vi.fn();
+vi.mock("@/lib/services/task", () => ({
+  TaskService: class {
+    cancelActiveTask(...args: any[]) { return mockCancelActiveTask(...args); }
+    cancelTrace(...args: any[]) { return mockCancelTrace(...args); }
+  },
 }));
 
 import { GET, PATCH, POST, DELETE } from "./route";
@@ -114,6 +128,41 @@ describe("POST /api/issues/[id]", () => {
 
 describe("DELETE /api/issues/[id]", () => {
   it("deletes the issue and returns 204", async () => {
+    mockGetIssue.mockResolvedValue({ id: "iss_1", conversationId: "c1", latestTaskId: null });
+    mockDeleteIssue.mockResolvedValue({ id: "iss_1" });
+    const req = new NextRequest("http://localhost/api/issues/iss_1", { method: "DELETE" });
+    const res = await DELETE(req, { params: { id: "iss_1" } } as any);
+    expect(res.status).toBe(204);
+    expect(mockDeleteIssue).toHaveBeenCalledWith({}, "iss_1", "w1");
+    expect(mockCancelActiveTask).toHaveBeenCalledWith("c1", "w1", { skipDispatch: true });
+  });
+
+  it("cancels via traceId when latestTask has a traceId", async () => {
+    mockGetIssue.mockResolvedValue({ id: "iss_1", conversationId: "c1", latestTaskId: "t1" });
+    mockGetTask.mockResolvedValue({ id: "t1", traceId: "trace_1" });
+    mockDeleteIssue.mockResolvedValue({ id: "iss_1" });
+    const req = new NextRequest("http://localhost/api/issues/iss_1", { method: "DELETE" });
+    const res = await DELETE(req, { params: { id: "iss_1" } } as any);
+    expect(res.status).toBe(204);
+    expect(mockCancelTrace).toHaveBeenCalledWith("trace_1", "w1");
+    expect(mockCancelActiveTask).not.toHaveBeenCalled();
+    expect(mockDeleteIssue).toHaveBeenCalled();
+  });
+
+  it("falls back to cancelActiveTask when latestTask has no traceId", async () => {
+    mockGetIssue.mockResolvedValue({ id: "iss_1", conversationId: "c1", latestTaskId: "t1" });
+    mockGetTask.mockResolvedValue({ id: "t1", traceId: null });
+    mockDeleteIssue.mockResolvedValue({ id: "iss_1" });
+    const req = new NextRequest("http://localhost/api/issues/iss_1", { method: "DELETE" });
+    const res = await DELETE(req, { params: { id: "iss_1" } } as any);
+    expect(res.status).toBe(204);
+    expect(mockCancelActiveTask).toHaveBeenCalledWith("c1", "w1", { skipDispatch: true });
+    expect(mockCancelTrace).not.toHaveBeenCalled();
+  });
+
+  it("still deletes the issue when cancellation throws", async () => {
+    mockGetIssue.mockResolvedValue({ id: "iss_1", conversationId: "c1", latestTaskId: null });
+    mockCancelActiveTask.mockRejectedValue(new Error("cancel failed"));
     mockDeleteIssue.mockResolvedValue({ id: "iss_1" });
     const req = new NextRequest("http://localhost/api/issues/iss_1", { method: "DELETE" });
     const res = await DELETE(req, { params: { id: "iss_1" } } as any);
@@ -122,7 +171,7 @@ describe("DELETE /api/issues/[id]", () => {
   });
 
   it("returns 404 when issue does not exist", async () => {
-    mockDeleteIssue.mockResolvedValue(null);
+    mockGetIssue.mockResolvedValue(null);
     const req = new NextRequest("http://localhost/api/issues/iss_999", { method: "DELETE" });
     const res = await DELETE(req, { params: { id: "iss_999" } } as any);
     expect(res.status).toBe(404);

@@ -10,6 +10,8 @@ import { withAuth } from "@/lib/middleware/auth";
 import { withWorkspaceMember } from "@/lib/middleware/workspace";
 import { parseBody, writeError, writeJSON } from "@/lib/middleware/helpers";
 import { issueToResponse, messageToResponse } from "@/lib/api/responses";
+import { TaskService } from "@/lib/services/task";
+import { log } from "@/lib/logger";
 
 export const GET = withAuth(async (req: NextRequest, ctx) => {
   const ws = await withWorkspaceMember(req, ctx);
@@ -90,8 +92,24 @@ export const DELETE = withAuth(async (req: NextRequest, ctx) => {
   const id = ctx.params?.id;
   if (!id) return writeError("issue id is required", 400);
 
-  const deleted = await queries.issue.deleteIssue(db, id, ws.workspaceId);
-  if (!deleted) return writeError("issue not found", 404);
+  const issue = await queries.issue.getIssue(db, id, ws.workspaceId);
+  if (!issue) return writeError("issue not found", 404);
+
+  const taskService = new TaskService(db);
+  try {
+    const task = issue.latestTaskId
+      ? await queries.task.getTask(db, issue.latestTaskId, ws.workspaceId)
+      : null;
+    if (task?.traceId) {
+      await taskService.cancelTrace(task.traceId, ws.workspaceId);
+    } else {
+      await taskService.cancelActiveTask(issue.conversationId, ws.workspaceId, { skipDispatch: true });
+    }
+  } catch (err) {
+    log.warn("failed to cancel tasks during issue deletion", { issueId: id, err });
+  }
+
+  await queries.issue.deleteIssue(db, id, ws.workspaceId);
 
   return new Response(null, { status: 204 });
 });

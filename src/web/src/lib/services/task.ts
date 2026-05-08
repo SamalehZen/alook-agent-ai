@@ -245,7 +245,7 @@ export class TaskService {
     return { oldTask: marked, newTask };
   }
 
-  async cancelActiveTask(conversationId: string, workspaceId: string) {
+  async cancelActiveTask(conversationId: string, workspaceId: string, opts?: { skipDispatch?: boolean }) {
     const activeTask = await taskQueries.getActiveTaskByConversation(this.db, conversationId, workspaceId);
     if (!activeTask) return null;
 
@@ -272,7 +272,9 @@ export class TaskService {
     });
 
     await this.reconcileAgentStatus(activeTask.agentId, workspaceId);
-    await this.dispatchNextBufferedMessage(conversationId, workspaceId);
+    if (!opts?.skipDispatch) {
+      await this.dispatchNextBufferedMessage(conversationId, workspaceId);
+    }
     return cancelled;
   }
 
@@ -338,6 +340,22 @@ export class TaskService {
         error: err instanceof Error ? err.message : "Failed to dispatch follow-up",
       }).catch(() => {});
       return null;
+    }
+  }
+
+  async cancelTrace(traceId: string, workspaceId: string) {
+    const tasks = await taskQueries.getTraceTree(this.db, traceId, workspaceId);
+    const activeConvIds = [...new Set(
+      tasks
+        .filter(t => ["queued", "dispatched", "running"].includes(t.status))
+        .map(t => t.conversationId)
+    )];
+    for (const convId of activeConvIds) {
+      try {
+        await this.cancelActiveTask(convId, workspaceId, { skipDispatch: true });
+      } catch (err) {
+        log.warn("cancelTrace: failed to cancel task", { traceId, convId, err });
+      }
     }
   }
 }
