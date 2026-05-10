@@ -238,6 +238,8 @@ export default function IssuesPage() {
   const [draft, setDraft] = useLocalStorage<{ title: string; description: string; agentId: string }>(`issue-draft-${workspaceId}`, { title: "", description: "", agentId: "" });
   const [showCompleted, setShowCompleted] = useLocalStorage<boolean>("issues-show-completed", true);
   const [issues, setIssues] = useState<IssueListItem[]>([]);
+  const issuesRef = useRef<IssueListItem[]>([]);
+  issuesRef.current = issues;
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -268,6 +270,35 @@ export default function IssuesPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function silentReload() {
+    try {
+      const [active, completed] = await Promise.all([
+        listIssues(workspaceId, { terminal: false }),
+        listIssues(workspaceId, { terminal: true }),
+      ]);
+      setIssues([...active, ...completed]);
+    } catch {
+      // silent — background refresh, errors are transient
+    }
+  }
+
+  const silentReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const needsDetailRefreshRef = useRef(false);
+
+  function debouncedSilentReload() {
+    if (silentReloadTimerRef.current) clearTimeout(silentReloadTimerRef.current);
+    silentReloadTimerRef.current = setTimeout(() => {
+      silentReloadTimerRef.current = null;
+      silentReload().catch(() => {});
+      if (needsDetailRefreshRef.current) {
+        if (selectedIdRef.current) {
+          refreshIssue(selectedIdRef.current).catch(() => {});
+        }
+        needsDetailRefreshRef.current = false;
+      }
+    }, 300);
   }
 
   useEffect(() => {
@@ -321,7 +352,14 @@ export default function IssuesPage() {
   }
 
   const detailConvId = detail?.issue.conversation_id ?? null;
+  const detailConvIdRef = useRef<string | null>(null);
+  detailConvIdRef.current = detailConvId;
   const detailTaskId = detail?.issue.latest_task_id ?? null;
+  const detailTaskIdRef = useRef<string | null>(null);
+  detailTaskIdRef.current = detailTaskId;
+  const detailAgentId = detail?.issue.agent_id ?? null;
+  const detailAgentIdRef = useRef<string | null>(null);
+  detailAgentIdRef.current = detailAgentId;
 
   useEffect(() => {
     if (!detailTaskId) { setActiveTask(null); return; }
@@ -339,8 +377,8 @@ export default function IssuesPage() {
 
 
   useEffect(() => {
-    return subscribeWs((msg: WsMessage) => {
-      if (msg.type === "conversation.message" && detailConvId && msg.conversationId === detailConvId) {
+    const unsub = subscribeWs((msg: WsMessage) => {
+      if (msg.type === "conversation.message" && detailConvIdRef.current && msg.conversationId === detailConvIdRef.current) {
         setDetail((prev) => {
           if (!prev) return prev;
           if (prev.messages.some((m) => m.id === msg.message.id)) return prev;
@@ -351,11 +389,11 @@ export default function IssuesPage() {
           if (match) {
             const newStatus = match[1] as Issue["status"];
             setDetail((prev) => prev ? { ...prev, issue: { ...prev.issue, status: newStatus } } : prev);
-            setIssues((prev) => prev.map((i) => i.conversation_id === detailConvId ? { ...i, status: newStatus, updated_at: msg.message.created_at } : i));
+            setIssues((prev) => prev.map((i) => i.conversation_id === detailConvIdRef.current ? { ...i, status: newStatus, updated_at: msg.message.created_at } : i));
           }
         }
       }
-      if (msg.type === "issue.comment" && selectedId === msg.issueId) {
+      if (msg.type === "issue.comment" && selectedIdRef.current === msg.issueId) {
         setDetail((prev) => {
           if (!prev) return prev;
           if (prev.comments.some((c) => c.id === msg.comment.id)) return prev;
@@ -363,17 +401,36 @@ export default function IssuesPage() {
         });
       }
       if (msg.type === "task.updated" && (msg.status === "running" || msg.status === "completed" || msg.status === "failed")) {
-        if (!pendingStatusUpdate.current) {
-          reload();
-          if (selectedId) refreshIssue(selectedId);
+        if (pendingStatusUpdate.current) return;
+
+        const currentIssues = issuesRef.current;
+
+        if (currentIssues.length === 0) {
+          debouncedSilentReload();
+          return;
         }
-        if (detailTaskId) {
-          getTask(detailTaskId, workspaceId).then(setActiveTask).catch(() => {});
+
+        const issueAgentIds = new Set(currentIssues.map(i => i.agent_id).filter((id): id is string => !!id));
+        const issueTaskIds = new Set(currentIssues.map(i => i.latest_task_id).filter((id): id is string => !!id));
+
+        if (!issueAgentIds.has(msg.agentId) && !issueTaskIds.has(msg.taskId)) return;
+
+        if (msg.taskId === detailTaskIdRef.current || msg.agentId === detailAgentIdRef.current) {
+          needsDetailRefreshRef.current = true;
         }
+
+        debouncedSilentReload();
       }
     });
+    return () => {
+      unsub();
+      if (silentReloadTimerRef.current) {
+        clearTimeout(silentReloadTimerRef.current);
+        silentReloadTimerRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailConvId, selectedId, subscribeWs]);
+  }, [subscribeWs]);
 
   // --- Sheet handlers ---
 
