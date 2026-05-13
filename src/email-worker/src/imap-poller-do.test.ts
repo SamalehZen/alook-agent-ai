@@ -304,7 +304,7 @@ describe("alarm — connection failure & backoff", () => {
 // ─── Auth failure ───
 
 describe("alarm — auth failure", () => {
-  it("stops polling on authentication error from connect", async () => {
+  it("retries with backoff on authentication error instead of stopping", async () => {
     const { durable, ctx } = createDO()
     mockConnect.mockRejectedValueOnce(new MockImapAuthError("IMAP A1 failed: A1 NO [AUTHENTICATIONFAILED]"))
 
@@ -315,7 +315,8 @@ describe("alarm — auth failure", () => {
       expect.anything(), "aea_test1", "ws_test1",
       expect.objectContaining({ status: "error", errorMessage: expect.stringContaining("AUTHENTICATIONFAILED") })
     )
-    expect(ctx.storage.deleteAlarm).toHaveBeenCalled()
+    expect(ctx.storage.setAlarm).toHaveBeenCalled()
+    expect(ctx.storage.deleteAlarm).not.toHaveBeenCalled()
   })
 })
 

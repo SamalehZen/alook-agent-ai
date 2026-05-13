@@ -214,9 +214,7 @@ export class ImapPollerDO extends DurableObject<EmailEnv> {
       })
 
       if (err instanceof ImapAuthError) {
-        pollLog.warn("auth error — stopping polling, user must fix credentials")
-        await this.ctx.storage.deleteAlarm()
-        return
+        pollLog.warn("auth error — will retry with backoff", { permanent: err.permanent })
       }
 
       const currentBackoff = (await this.ctx.storage.get<number>("backoffMs")) ?? 0
