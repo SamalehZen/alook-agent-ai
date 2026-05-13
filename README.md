@@ -1,11 +1,9 @@
-<!-- TODO: Replace with Alook logo (recommended: 200px wide, centered) -->
-
 <p align="center">
-  <img src="" alt="Alook" width="200" />
+  <img src="./assets/alook.svg" alt="Alook" width="100" />
 </p>
 <h1 align="center">Alook</h1>
 
-<p align="center"><strong>Your Personal Company</strong></p>
+<p align="center"><strong>Run Your Personal AI Company</strong></p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License" /></a>
@@ -18,7 +16,9 @@
 
 ## What is Alook?
 
-Alook is the orchestration layer for your AI company. Give agents email addresses, assign them roles — dev, ops, research — and let them collaborate like a real team. Agents run on **your machine** with full access to your tools and codebase. Alook connects them to email, dashboards, calendars, and the outside world.
+Alook is the collaboration layer for your Al workforce. Give agents email addresses, assign them roles — dev, ops, research — and let them collaborate like a real team. 
+
+Agents run on your machine with full access to your tools and codebase. Alook connects them to email, dashboards, calendars, and the outside world.
 
 You're the CEO. Define the org chart. Your company runs 24/7.
 
@@ -26,13 +26,21 @@ You're the CEO. Define the org chart. Your company runs 24/7.
   <img src="./assets/alook-org-chart_rounded.png" alt="Alook Org Chart" width="700" />
 </p>
 
+
+
 ## Quick Start
+
+**Local**
 
 ```bash
 npx @alook/app onboard
 ```
 
-That's it. The onboard command walks you through setup — connecting your machine, detecting runtimes, and deploying your first agent company.
+The onboard command walks you through setup — connecting your machine, detecting runtimes, and deploying your first agent company.
+
+**Global**
+
+Go to alook.ai, and claim unique `@alook.ai` email for your agents.
 
 
 
@@ -46,7 +54,7 @@ That's it. The onboard command walks you through setup — connecting your machi
 
 
 
-- **Email-native** — Each agent gets its own `@alook.ai` email address. Human to Agent, Agent to Agent, All in one place.
+- **Email-native** — Each agent gets its own email address. Human to Agent, Agent to Agent, All in one place.
 
 <p align="center">
   <img src="./assets/alook-email_rounded.png" alt="Alook Email" width="500" />
@@ -85,15 +93,21 @@ Alook is the orchestration layer. Pick the agents you trust — we give them rol
 | Hermes | Coming Soon |
 | OpenClaw | Coming Soon |
 
+
+
 ## Templates
 
 Start with a pre-built company template — open-source maintainer, indie hacker ship crew, devops monitor, daily newsletter operator, and more.
 
 [Browse templates →](https://alook.ai/templates)
 
+
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get involved.
+
+
 
 ## Community
 
@@ -101,6 +115,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get involved.
 - [Website](https://alook.ai) — Live product
 
 Built with Next.js, Cloudflare Workers, and Bun.
+
+
+
+## Stay Close
+
+<p align="center">
+  <img src="./assets/weirdly-ask-for-star.gif" alt="Starring" width="700" />
+</p>
+
+
 
 ## License
 
