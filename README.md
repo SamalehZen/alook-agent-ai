@@ -121,8 +121,9 @@ Built with Next.js, Cloudflare Workers, and Bun.
 ## Stay Close
 
 <p align="center">
-  <img src="./assets/weirdly-ask-for-star.gif" alt="Starring" width="700" />
+  <img src="./assets/weirdly-ask-for-star.gif" alt="Starring" />
 </p>
+
 
 
 
