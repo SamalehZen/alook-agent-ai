@@ -10,6 +10,7 @@ import { useFlagCount } from "@/contexts/flag-count-context";
 import { useAgentChatSheet } from "@/contexts/agent-chat-sheet-context";
 import { AgentAvatar } from "@/components/avatar";
 import { relativeTime } from "@/lib/time";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Flag, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
@@ -63,6 +64,7 @@ export function FlagPopover({
   const [items, setItems] = useState<FlaggedItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setItems(null);
@@ -93,25 +95,30 @@ export function FlagPopover({
         if (nextOpen) fetchItems();
       }}
     >
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className={cn(
-              "relative flex items-center justify-center size-10 rounded-xl transition-colors duration-200 cursor-pointer",
-              "text-muted-foreground hover:text-foreground hover:bg-accent",
-              isActive && "bg-accent text-foreground"
-            )}
-          />
-        }
-      >
-        <Flag className="size-4" />
-        {flagCount > 0 && (
-          <span className="absolute top-1 right-1 flex items-center justify-center min-w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-0.5">
-            {flagCount > 99 ? "99+" : flagCount}
-          </span>
-        )}
-      </PopoverTrigger>
+      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
+        <PopoverTrigger
+          render={
+            <TooltipTrigger render={
+              <button
+                type="button"
+                className={cn(
+                  "relative flex items-center justify-center size-10 rounded-xl transition-colors duration-200 cursor-pointer",
+                  "text-muted-foreground hover:text-foreground hover:bg-accent",
+                  isActive && "bg-accent text-foreground"
+                )}
+              />
+            } />
+          }
+        >
+          <Flag className="size-4" />
+          {flagCount > 0 && (
+            <span className="absolute top-1 right-1 flex items-center justify-center min-w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-0.5">
+              {flagCount > 99 ? "99+" : flagCount}
+            </span>
+          )}
+        </PopoverTrigger>
+        <TooltipContent side="right">Flagged</TooltipContent>
+      </Tooltip>
       <PopoverContent side="right" className="w-80 p-0">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
           <span className="text-xs font-medium">Flagged</span>

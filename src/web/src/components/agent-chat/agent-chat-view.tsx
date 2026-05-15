@@ -573,7 +573,7 @@ export function AgentChatView({
       markInboxRead(conversation.id, workspaceId)
         .then(() => refreshInboxCountRef.current())
         .catch(() => {});
-    }, 5000);
+    }, 1000);
     return () => {
       markedReadRef.current = null;
       clearTimeout(timer);
@@ -883,7 +883,7 @@ export function AgentChatView({
               markInboxRead(conversationId, workspaceId)
                 .then(() => refreshInboxCountRef.current())
                 .catch(() => {});
-            }, 5000);
+            }, 1000);
 
             const shouldScroll = isNearBottom.current;
             try {

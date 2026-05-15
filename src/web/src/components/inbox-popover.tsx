@@ -11,6 +11,7 @@ import { useAgentChatSheet } from "@/contexts/agent-chat-sheet-context";
 import { AgentAvatar } from "@/components/avatar";
 import { relativeTime } from "@/lib/time";
 import { getInboxFilterTypes } from "@/lib/inbox-filter";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Inbox, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
@@ -64,6 +65,7 @@ export function InboxPopover({
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setItems(null);
@@ -101,25 +103,30 @@ export function InboxPopover({
         }
       }}
     >
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className={cn(
-              "relative flex items-center justify-center size-10 rounded-xl transition-colors duration-200 cursor-pointer",
-              "text-muted-foreground hover:text-foreground hover:bg-accent",
-              isActive && "bg-accent text-foreground"
-            )}
-          />
-        }
-      >
-        <Inbox className="size-4" />
-        {inboxCount > 0 && (
-          <span className="absolute top-1 right-1 flex items-center justify-center min-w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-0.5">
-            {inboxCount > 99 ? "99+" : inboxCount}
-          </span>
-        )}
-      </PopoverTrigger>
+      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
+        <PopoverTrigger
+          render={
+            <TooltipTrigger render={
+              <button
+                type="button"
+                className={cn(
+                  "relative flex items-center justify-center size-10 rounded-xl transition-colors duration-200 cursor-pointer",
+                  "text-muted-foreground hover:text-foreground hover:bg-accent",
+                  isActive && "bg-accent text-foreground"
+                )}
+              />
+            } />
+          }
+        >
+          <Inbox className="size-4" />
+          {inboxCount > 0 && (
+            <span className="absolute top-1 right-1 flex items-center justify-center min-w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-0.5">
+              {inboxCount > 99 ? "99+" : inboxCount}
+            </span>
+          )}
+        </PopoverTrigger>
+        <TooltipContent side="right">Unread</TooltipContent>
+      </Tooltip>
       <PopoverContent side="right" className="w-80 p-0">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
           <span className="text-xs font-medium">Unread</span>

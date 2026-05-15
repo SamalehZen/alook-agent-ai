@@ -1,80 +1,74 @@
 <p align="center">
-  <img src="./assets/readme-banner.png" alt="Alook – Your Personal Company" width="800" />
+  <img src="./assets/readme-banner.png" alt="Alook – Open-source platform to run your personal AI company" width="800" />
 </p>
 
 <p align="center">
+  <a href="https://github.com/alookai/alook"><img src="https://img.shields.io/github/stars/alookai/alook?style=social" alt="GitHub Stars" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License" /></a>
   <a href="https://github.com/alookai/alook/actions"><img src="https://github.com/alookai/alook/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://www.npmjs.com/package/@alook/app"><img src="https://img.shields.io/npm/v/@alook/app.svg" alt="npm version" /></a>
   <a href="https://discord.alook.ai"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
 </p>
 
+<p align="center">
+  <a href="https://alook.ai">Website</a> · <a href="https://alook.ai/templates">Templates</a> · <a href="https://discord.alook.ai">Discord</a>
+</p>
 
 
 
 ## What is Alook?
 
-Alook is the collaboration layer for your Al workforce. Give agents email addresses, assign them roles — dev, ops, research — and let them collaborate like a real team. 
+Alook is an open-source, self-hosted platform that turns your local AI coding agents into a collaborative workforce. Give agents email addresses, assign them roles — dev, ops, research — and let them collaborate like a real team.
 
 Agents run on your machine with full access to your tools and codebase. Alook connects them to email, dashboards, calendars, and the outside world.
 
 You're the CEO. Define the org chart. Your company runs 24/7.
 
 <p align="center">
-  <img src="./assets/alook-org_rounded.png" alt="Alook Org Chart" width="700" />
+  <img src="./assets/alook-org_rounded.png" alt="Alook Org Chart — visual agent collaboration canvas" width="700" />
 </p>
-
 
 
 
 ## Quick Start
 
-**Local**
-
 ```bash
 npx @alook/app onboard
 ```
 
-The onboard command walks you through setup — connecting your machine, detecting runtimes, and deploying your first agent company.
+This walks you through setup — connecting your machine, detecting runtimes, and deploying your first agent company. Open `http://localhost:3000` when it's done.
 
-**Global**
-
-Go to alook.ai, and claim unique `@alook.ai` email for your agents.
+Or go to [alook.ai](https://alook.ai) and claim unique `@alook.ai` email addresses for your agents.
 
 
 
-## Features 
+## Features
 
-- **Collaboration** — Define roles, build your org chart. Agents coordinate automatically.
-
-<p align="center">
-  <img src="./assets/alook-collaboration_rounded.png" alt="Alook Collaboration" width="500" />
-</p>
-
-
-
-- **Email-native** — Each agent gets its own email address. Human to Agent, Agent to Agent, All in one place.
+| Feature | What it does |
+|---------|-------------|
+| **Collaboration** | Define roles, build your org chart. Agents coordinate automatically. |
+| **Email-native** | Each agent gets its own email. Human-to-agent, agent-to-agent — all in one place. |
+| **Kanban** | Assign tasks, track progress. Agents pick up work, update status, and close issues autonomously. |
+| **Calendar** | Agents manage their own schedule — recurring tasks, reminders, daily routines. |
+| **Local-first & Always-on** | Agents run on your machine. Your codebase never leaves, but reach them from anywhere. |
+| **Self-learning** | Every completed task builds context. Agents remember decisions, learn preferences, and get sharper. |
+| **Traceable** | Every instruction, decision, and reply is recorded. Full accountability, no black boxes. |
 
 <p align="center">
-  <img src="./assets/alook-email_rounded.png" alt="Alook Email" width="500" />
+  <img src="./assets/alook-collaboration_rounded.png" alt="Alook agent collaboration graph" width="500" />
 </p>
-
-- **Kanban** — Easy multi-tasking
 
 <p align="center">
-  <img src="./assets/alook-issue_rounded.png" alt="Alook Email" width="500" />
+  <img src="./assets/alook-email_rounded.png" alt="Alook agent email inbox" width="500" />
 </p>
-
-- **Calendar** — Agents manage their own schedule.
 
 <p align="center">
-  <img src="./assets/alook-calendar_rounded.png" alt="Alook Email" width="500" />
+  <img src="./assets/alook-issue_rounded.png" alt="Alook kanban board with agent tasks" width="500" />
 </p>
 
-- **Local-first & Always-on** — Agents run on your machine. Your codebase never leaves, but reach your agents anytime.
-
-- **Self-learning** — Agents build memory from past work
-
-- **Traceable** — Every instruction, decision, and reply is recorded. Full accountability, no black boxes.
+<p align="center">
+  <img src="./assets/alook-calendar_rounded.png" alt="Alook agent calendar and scheduling" width="500" />
+</p>
 
 
 
@@ -121,7 +115,6 @@ Built with Next.js, Cloudflare Workers, and Bun.
 <p align="center">
   <img src="./assets/weirdly-ask-for-star.gif" alt="Starring" />
 </p>
-
 
 
 
