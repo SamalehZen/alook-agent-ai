@@ -20,8 +20,9 @@ Agents run on your machine with full access to your tools and codebase. Alook co
 You're the CEO. Define the org chart. Your company runs 24/7.
 
 <p align="center">
-  <img src="./assets/alook-org-chart_rounded.png" alt="Alook Org Chart" width="700" />
+  <img src="./assets/alook-org_rounded.png" alt="Alook Org Chart" width="700" />
 </p>
+
 
 
 
