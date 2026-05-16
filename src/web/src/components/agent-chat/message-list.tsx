@@ -2,6 +2,8 @@ import React, { memo, useState } from "react";
 import type { Agent, Artifact, Message, TaskApi as Task, TaskMessage } from "@alook/shared";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Streamdown } from "streamdown";
 import { highlightMentions } from "@/lib/highlight-mentions";
 import { TaskStream } from "@/components/task-stream";
@@ -141,15 +143,81 @@ export const MessageItem = memo(function MessageItem({
       ? stepCount
       : 0;
 
+  const isTaskDone = hasTaskStream && activeTask && ["completed", "failed", "cancelled", "superseded"].includes(activeTask.status);
+
+  const actionButtons = msg.role === "assistant" ? (
+    <div className="flex flex-row items-center gap-1">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={copied ? "Copied" : "Copy message"}
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  await navigator.clipboard.writeText(msg.content);
+                  setCopied(true);
+                  toast.success("Copied to clipboard");
+                  setTimeout(() => setCopied(false), 2000);
+                } catch {
+                  toast.error("Failed to copy");
+                }
+              }}
+              className={cn(
+                "self-start mb-1",
+                copied
+                  ? "text-green-500 opacity-100"
+                  : "text-muted-foreground opacity-0 group-hover/msg:opacity-100"
+              )}
+            />
+          }
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        </TooltipTrigger>
+        <TooltipContent>{copied ? "Copied" : "Copy"}</TooltipContent>
+      </Tooltip>
+      {onToggleFlag && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => onToggleFlag(msg.id)}
+                className={cn(
+                  "self-start mb-1",
+                  isFlagged
+                    ? "text-primary opacity-100"
+                    : "text-muted-foreground opacity-0 group-hover/msg:opacity-100"
+                )}
+              />
+            }
+          >
+            <Flag className={cn("size-3.5", isFlagged && "fill-current")} />
+          </TooltipTrigger>
+          <TooltipContent>{isFlagged ? "Unflag" : "Flag"}</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  ) : null;
+
   return (
     <React.Fragment>
       {hasTaskStream && (
-        <TaskStream
-          task={activeTask}
-          messages={taskMessages}
-          connectionLost={connectionLost}
-          onRetry={onRetry}
-        />
+        <div className={cn(
+          "group/msg",
+          isFlagged && "bg-muted/30 rounded-lg px-2 -mx-2"
+        )}>
+          <TaskStream
+            task={activeTask}
+            messages={taskMessages}
+            connectionLost={connectionLost}
+            onRetry={onRetry}
+          />
+          {isTaskDone && actionButtons}
+        </div>
       )}
       {historicalStepCount > 0 && msg.task_id && (
         <HistoricalTaskSteps
@@ -206,47 +274,7 @@ export const MessageItem = memo(function MessageItem({
           <div className="markdown max-w-full min-w-0 px-1 py-1 text-base text-foreground">
             <Streamdown controls={{ code: { copy: true, download: false }, table: { copy: true, download: false, fullscreen: true } }} linkSafety={{ enabled: false }} allowedTags={MENTION_ALLOWED_TAGS} literalTagContent={MENTION_LITERAL_TAGS} components={mentionComponents}>{highlightMentions(msg.content, agents)}</Streamdown>
           </div>
-          <div className="flex flex-row items-center gap-1">
-            <button
-              type="button"
-              aria-label={copied ? "Copied" : "Copy message"}
-              title={copied ? "Copied" : "Copy"}
-              onClick={async (e) => {
-                e.stopPropagation();
-                try {
-                  await navigator.clipboard.writeText(msg.content);
-                  setCopied(true);
-                  toast.success("Copied to clipboard");
-                  setTimeout(() => setCopied(false), 2000);
-                } catch {
-                  toast.error("Failed to copy");
-                }
-              }}
-              className={cn(
-                "self-start mb-1 flex items-center justify-center size-6 rounded-md transition-all duration-150 cursor-pointer shrink-0",
-                copied
-                  ? "text-green-500 opacity-100"
-                  : "text-muted-foreground opacity-0 group-hover/msg:opacity-100 hover:text-foreground hover:bg-muted"
-              )}
-            >
-              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-            </button>
-            {onToggleFlag && (
-              <button
-                type="button"
-                onClick={() => onToggleFlag(msg.id)}
-                className={cn(
-                  "self-start mb-1 flex items-center justify-center size-6 rounded-md transition-all duration-150 cursor-pointer shrink-0",
-                  isFlagged
-                    ? "text-primary opacity-100"
-                    : "text-muted-foreground opacity-0 group-hover/msg:opacity-100 hover:text-foreground hover:bg-muted"
-                )}
-                title={isFlagged ? "Unflag" : "Flag"}
-              >
-                <Flag className={cn("size-3.5", isFlagged && "fill-current")} />
-              </button>
-            )}
-          </div>
+          {actionButtons}
         </div>
       ) : null}
     </React.Fragment>
