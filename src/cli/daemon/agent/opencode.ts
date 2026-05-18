@@ -26,6 +26,7 @@ export class OpenCodeBackend implements AgentBackend {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, ...options.env, OPENCODE_PERMISSION: '{"*":"allow"}' },
       shell: process.platform === "win32",
+      windowsHide: true,
     });
 
     if (!proc.pid) {

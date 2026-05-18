@@ -51,6 +51,7 @@ export class CodexBackend implements AgentBackend {
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, ...options.env },
       shell: process.platform === "win32",
+      windowsHide: true,
     });
 
     if (!proc.pid) {
