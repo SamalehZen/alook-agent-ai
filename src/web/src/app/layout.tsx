@@ -8,7 +8,6 @@ import {
 } from "next/font/google";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeScript } from "@/components/theme-script";
 import { ToasterProvider } from "@/components/toaster-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -117,7 +116,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <ThemeScript />
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
