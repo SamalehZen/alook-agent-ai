@@ -593,7 +593,6 @@ export function AgentChatView({
     }
     load();
     return () => { ignore = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, workspaceId, targetConvId, scrollToTaskId, activeChannel, channelLoading]);
 
   const refreshInboxCountRef = useRef(refreshInboxCount);

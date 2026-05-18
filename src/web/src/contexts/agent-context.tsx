@@ -92,6 +92,7 @@ export function AgentProvider({
   const loadedRef = useRef(false);
   const subscribersRef = useRef(new Set<WsSubscriber>());
   const taskCountsMountedRef = useRef(true);
+  const isReloadingRuntimesRef = useRef(false);
 
   const subscribeWs = useCallback((fn: WsSubscriber) => {
     subscribersRef.current.add(fn);
@@ -165,9 +166,47 @@ export function AgentProvider({
     }
   }, [workspaceId]);
 
+  const reloadRuntimes = useCallback(async () => {
+    if (isReloadingRuntimesRef.current) return;
+    isReloadingRuntimesRef.current = true;
+    try {
+      const r = await listRuntimes(workspaceId);
+      setRuntimes(r);
+    } catch {
+      // ignore — next tick will retry
+    } finally {
+      isReloadingRuntimesRef.current = false;
+    }
+  }, [workspaceId]);
+
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Periodic runtime polling (30s, visibility-aware)
+  useEffect(() => {
+    let jitterTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        reloadRuntimes();
+      }
+    }, 30_000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const jitter = Math.random() * 2000;
+        jitterTimer = setTimeout(() => reloadRuntimes(), jitter);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(intervalId);
+      if (jitterTimer) clearTimeout(jitterTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [reloadRuntimes]);
 
   // Debounced reload for runtime.status events
   const statusDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -214,7 +253,7 @@ export function AgentProvider({
     },
     [reload, debouncedReload, fetchTaskCounts, workspaceId]
   );
-  useUserWs(handleWsMessage);
+  useUserWs(handleWsMessage, { onReconnect: reloadRuntimes });
 
   const handleCreateAgent = useCallback(
     async (req: CreateAgentRequest): Promise<Agent | null> => {

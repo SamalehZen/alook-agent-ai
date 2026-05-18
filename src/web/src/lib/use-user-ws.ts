@@ -8,15 +8,24 @@ const WS_DO_PORT_DEFAULT = Number(process.env.NEXT_PUBLIC_WS_DO_PORT) || 8789
 const WS_RECONNECT_INIT = Number(process.env.NEXT_PUBLIC_WS_RECONNECT_DELAY_MS) || 1000
 const WS_RECONNECT_MAX = Number(process.env.NEXT_PUBLIC_WS_RECONNECT_MAX_DELAY_MS) || 30_000
 
-export function useUserWs(onMessage: (msg: WsMessage) => void) {
+export function useUserWs(onMessage: (msg: WsMessage) => void, options?: { onReconnect?: () => void }) {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectDelay = useRef(WS_RECONNECT_INIT)
   const onMessageRef = useRef(onMessage)
+  const onReconnectRef = useRef(options?.onReconnect)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasConnectedBeforeRef = useRef(false)
+  const lastMessageAtRef = useRef(0)
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const livenessIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     onMessageRef.current = onMessage
   }, [onMessage])
+
+  useEffect(() => {
+    onReconnectRef.current = options?.onReconnect
+  }, [options?.onReconnect])
 
   const connectRef = useRef<(() => Promise<void>) | null>(null)
 
@@ -66,9 +75,27 @@ export function useUserWs(onMessage: (msg: WsMessage) => void) {
     ws.onopen = () => {
       reconnectDelay.current = WS_RECONNECT_INIT
       ws.send(JSON.stringify({ type: "auth", token: authToken }))
+
+      if (hasConnectedBeforeRef.current) {
+        onReconnectRef.current?.()
+      }
+      hasConnectedBeforeRef.current = true
+
+      lastMessageAtRef.current = Date.now()
+      pingIntervalRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send("ping")
+        }
+      }, 25_000)
+      livenessIntervalRef.current = setInterval(() => {
+        if (Date.now() - lastMessageAtRef.current > 30_000) {
+          ws.close()
+        }
+      }, 5_000)
     }
 
     ws.onmessage = (e) => {
+      lastMessageAtRef.current = Date.now()
       try {
         const msg = JSON.parse(e.data)
         if (msg.type === "auth.ok") return
@@ -80,6 +107,8 @@ export function useUserWs(onMessage: (msg: WsMessage) => void) {
 
     ws.onclose = () => {
       if (ws !== wsRef.current) return
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null }
+      if (livenessIntervalRef.current) { clearInterval(livenessIntervalRef.current); livenessIntervalRef.current = null }
       scheduleReconnect()
     }
   }, [scheduleReconnect])
@@ -95,6 +124,8 @@ export function useUserWs(onMessage: (msg: WsMessage) => void) {
         clearTimeout(reconnectTimerRef.current)
         reconnectTimerRef.current = null
       }
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null }
+      if (livenessIntervalRef.current) { clearInterval(livenessIntervalRef.current); livenessIntervalRef.current = null }
       const ws = wsRef.current
       wsRef.current = null
       ws?.close()
