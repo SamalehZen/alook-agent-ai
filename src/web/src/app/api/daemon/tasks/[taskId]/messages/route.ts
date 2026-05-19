@@ -48,12 +48,13 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   const [body, err] = await parseBody(req, ReportMessagesRequestSchema);
   if (err) return err;
 
-  if (body.messages.length === 0) {
+  const filtered = body.messages.filter((m) => m.type !== "log" && m.type !== "status");
+  if (filtered.length === 0) {
     return writeJSON({ status: "ok" });
   }
 
   const results = await Promise.allSettled(
-    body.messages.map((m) =>
+    filtered.map((m) =>
       queries.taskMessage.createTaskMessage(db, {
         taskId,
         seq: m.seq,
@@ -73,7 +74,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     }
   });
 
-  const succeeded = body.messages.filter((_, i) => results[i].status === "fulfilled");
+  const succeeded = filtered.filter((_, i) => results[i].status === "fulfilled");
   const broadcastable = succeeded.filter((m) => m.type !== "tool-result");
   if (broadcastable.length > 0) {
     const wsMessages: TaskMessage[] = broadcastable.map((m) => ({
