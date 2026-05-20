@@ -1,18 +1,16 @@
 import { NextRequest } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { queries, PollRequestSchema, semverGte, toAlookAddress, type FileRequestItem, type PollMeetingItem } from "@alook/shared";
+import { queries, PollRequestSchema, semverGte, type FileRequestItem, type PollMeetingItem } from "@alook/shared";
 import { getDb, withD1Retry } from "@/lib/db"
 import { withAuth } from "@/lib/middleware/auth";
 import { writeJSON, writeError, parseBody } from "@/lib/middleware/helpers";
-import { taskToResponse } from "@/lib/api/responses";
 import { TaskService } from "@/lib/services/task";
-import { sweepStaleState } from "@/lib/services/sweep";
-import { promoteDueCalendarEventsForWorkspace } from "@/lib/services/calendar";
+import { TaskPayloadBuilder } from "@/lib/services/task-payload-builder";
 import { broadcastToUser } from "@/lib/broadcast";
 import { log } from "@/lib/logger";
 
 export const POST = withAuth(async (req: NextRequest, ctx) => {
-  const { env, ctx: cfCtx } = getCloudflareContext();
+  const { env } = getCloudflareContext();
   const db = getDb((env as Env).DB);
   const { cached, cacheKeys, throttled } = await import("@/lib/cache");
 
@@ -34,68 +32,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     return writeJSON({ tasks: [], evicted: true });
   }
 
-  // 2. Liveness: write heartbeat to KV (fast) + D1 upsert throttled via timestamp.
-  // KV heartbeat is the primary source; D1 is the cross-colo fallback.
-  // 15s throttle is safe: KV heartbeat (120s TTL) handles realtime liveness,
-  // D1 only needs to be fresh enough for cross-colo failover detection.
-  const D1_HEARTBEAT_THROTTLE_S = 15;
-  const kv = (env as Env).CACHE_KV ?? null;
-  if (kv) {
-    kv.put(
-      cacheKeys.heartbeat(ctx.workspaceId, body.daemon_id),
-      new Date().toISOString(),
-      { expirationTtl: 120 },
-    ).catch(() => {});
-  }
-  try {
-    await throttled(
-      `hb_d1:${ctx.workspaceId}:${body.daemon_id}`,
-      D1_HEARTBEAT_THROTTLE_S,
-      async () => {
-        await queries.machine.upsertMachine(db, {
-          daemonId: body.daemon_id,
-          workspaceId: ctx.workspaceId!,
-          deviceInfo: body.daemon_id,
-        });
-      },
-    );
-  } catch (e) {
-    log.warn("machine upsert failed", { daemonId: body.daemon_id, err: String(e) });
-  }
-
-  broadcastToUser(ctx.userId, {
-    type: "runtime.status",
-    daemonId: body.daemon_id,
-    workspaceId: ctx.workspaceId,
-    status: "online",
-  }).catch(() => {});
-
-  // 3. Housekeeping: sweep stale state — non-blocking (runs after response is sent)
-  cfCtx.waitUntil(
-    sweepStaleState(db, ctx.workspaceId).catch((e) => {
-      log.warn("sweep failed", { workspaceId: ctx.workspaceId, err: String(e) });
-    })
-  );
-
-  // 3b. Promote due calendar events — non-blocking, throttled to once per 30s per workspace
-  cfCtx.waitUntil(
-    throttled(`cal:${ctx.workspaceId}`, 30, async () => {
-      const enqueued = await promoteDueCalendarEventsForWorkspace(
-        db,
-        ctx.workspaceId!,
-      );
-      if (enqueued > 0) {
-        log.info("calendar: enqueued", { workspaceId: ctx.workspaceId, enqueued });
-      }
-    }).catch((err) => {
-      log.warn("calendar: promote failed", {
-        workspaceId: ctx.workspaceId,
-        err: String(err),
-      });
-    })
-  );
-
-  // 4. Task claiming
+  // 2. Task claiming
   const taskService = new TaskService(db);
   const claimed = await withD1Retry(() => taskService.claimTasksForRuntimes(
     runtimeIds,
@@ -103,142 +40,15 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     ctx.workspaceId!,
   ));
 
-  // Batch-fetch shared data before the task loop to avoid N+1 queries
-  // Uses KV cache for stable data (agents, emails, colleagues)
-  const nonKillTasks = claimed.filter((t) => t.type !== "kill_task");
-  const agentIds = [...new Set(nonKillTasks.map((t) => t.agentId))];
+  const payloadBuilder = new TaskPayloadBuilder(db);
+  const tasks = await payloadBuilder.buildFullPayloads(claimed, ctx.workspaceId!);
 
-  const [allAgents, allEmailAccounts, allColleagues] = agentIds.length > 0
-    ? await Promise.all([
-        cached(cacheKeys.allAgents(ctx.workspaceId!), 300, () => queries.agent.getAllAgentsForWorkspace(db, ctx.workspaceId!)),
-        cached(cacheKeys.allEmailAccounts(ctx.workspaceId!), 600, () => queries.emailAccount.getAllEmailAccountsForWorkspace(db, ctx.workspaceId!)),
-        cached(cacheKeys.allColleagues(ctx.workspaceId!), 600, () => queries.agentLink.getAllColleaguesForWorkspace(db, ctx.workspaceId!)).catch(() => [] as Awaited<ReturnType<typeof queries.agentLink.getAllColleaguesForWorkspace>>),
-      ]).then(([agents, emails, colleagues]) => {
-        const agentIdSet = new Set(agentIds);
-        return [
-          agents.filter((a) => agentIdSet.has(a.id)),
-          emails.filter((a) => agentIdSet.has(a.agentId)),
-          colleagues.filter((c) => agentIdSet.has(c.agentId)),
-        ] as const;
-      })
-    : [[], [], [] as Awaited<ReturnType<typeof queries.agentLink.getAllColleaguesForWorkspace>>];
-
-  const agentMap = new Map(allAgents.map((a) => [a.id, a]));
-  const emailAccountsByAgent = new Map<string, string[]>();
-  for (const acc of allEmailAccounts) {
-    const list = emailAccountsByAgent.get(acc.agentId) ?? [];
-    list.push(acc.emailAddress);
-    emailAccountsByAgent.set(acc.agentId, list);
-  }
-  const colleaguesByAgent = new Map<string, typeof allColleagues>();
-  for (const c of allColleagues) {
-    const list = colleaguesByAgent.get(c.agentId) ?? [];
-    list.push(c);
-    colleaguesByAgent.set(c.agentId, list);
+  // Patch user_email (only available in poll context via auth)
+  for (const t of tasks) {
+    if (t.agent) t.agent.user_email = ctx.email || null;
   }
 
-  const tasks = [];
-  const memberCache = new Map<string, { globalInstruction: string } | null>();
-  const userCache = new Map<string, { name: string; email: string } | null>();
-  const convoCache = new Map<string, Awaited<ReturnType<typeof queries.conversation.getConversation>> | null>();
-  for (const task of claimed) {
-    if (task.type === "kill_task") {
-      tasks.push({ ...taskToResponse(task), agent: null, sender: null });
-      continue;
-    }
-
-    const agent = agentMap.get(task.agentId) ?? null;
-    const emailAddresses: string[] = [];
-    if (agent) {
-      if (agent.emailHandle) emailAddresses.push(`${agent.emailHandle}@alook.ai`);
-      const customAccounts = emailAccountsByAgent.get(agent.id) ?? [];
-      emailAddresses.push(...customAccounts);
-    }
-
-    let instructions = agent?.instructions ?? "";
-    if (agent?.ownerId) {
-      if (!memberCache.has(agent.ownerId)) {
-        const m = await cached(
-          cacheKeys.member(task.workspaceId, agent.ownerId),
-          600,
-          () => queries.member.getMemberByUserAndWorkspace(db, agent.ownerId!, task.workspaceId),
-        );
-        memberCache.set(agent.ownerId, m ? { globalInstruction: m.globalInstruction } : null);
-      }
-      const cachedMember = memberCache.get(agent.ownerId);
-      if (cachedMember?.globalInstruction) {
-        instructions = [cachedMember.globalInstruction, instructions].filter(Boolean).join("\n\n");
-      }
-    }
-
-    let ownerName: string | null = null;
-    if (agent?.ownerId) {
-      if (!userCache.has(agent.ownerId)) {
-        const u = await cached(
-          cacheKeys.user(agent.ownerId),
-          1800,
-          () => queries.user.getUser(db, agent.ownerId!),
-        );
-        userCache.set(agent.ownerId, u ? { name: u.name, email: u.email } : null);
-      }
-      ownerName = userCache.get(agent.ownerId)?.name ?? null;
-    }
-
-    let convo = convoCache.get(task.conversationId) ?? null;
-    if (task.conversationId && !convoCache.has(task.conversationId)) {
-      convo = await queries.conversation.getConversation(db, task.conversationId, task.workspaceId);
-      convoCache.set(task.conversationId, convo);
-    }
-    const taskChannel = convo?.channel ?? "default";
-
-    let sender: { name: string; email: string; is_owner: boolean } | null = null;
-    if (task.type === "user_dm_message" && convo?.userId) {
-      if (!userCache.has(convo.userId)) {
-        const u = await cached(
-          cacheKeys.user(convo.userId),
-          1800,
-          () => queries.user.getUser(db, convo!.userId!),
-        );
-        userCache.set(convo.userId, u ? { name: u.name, email: u.email } : null);
-      }
-      const cachedUser = userCache.get(convo.userId);
-      if (cachedUser) {
-        sender = {
-          name: cachedUser.name,
-          email: cachedUser.email,
-          is_owner: convo.userId === agent?.ownerId,
-        };
-      }
-    }
-
-    const rawColleagues = colleaguesByAgent.get(task.agentId) ?? [];
-    const colleagues = rawColleagues.map((c) => ({
-      name: c.name,
-      email: c.emailHandle ? toAlookAddress(c.emailHandle) : "",
-      description: c.description,
-      instruction: c.instruction,
-    }));
-
-    tasks.push({
-      ...taskToResponse(task),
-      channel: taskChannel,
-      sender,
-      agent: agent
-        ? {
-            instructions,
-            name: agent.name,
-            runtime_config: agent.runtimeConfig || {},
-            email_handle: agent.emailHandle || null,
-            email_addresses: emailAddresses,
-            user_email: ctx.email || null,
-            user_name: ownerName,
-            colleagues,
-          }
-        : null,
-    });
-  }
-
-  // 5. Pending update & rescan check + meeting claim — throttled to once per 30s
+  // 3. Pending update & rescan check + meeting claim — throttled to once per 30s
   let pendingUpdate: { version: string } | undefined;
   let pendingRescan: boolean | undefined;
   let meetings: PollMeetingItem[] | undefined;

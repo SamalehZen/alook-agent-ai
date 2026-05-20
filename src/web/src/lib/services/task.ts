@@ -1,9 +1,10 @@
 import type { Database } from "@alook/shared";
 import { queries, TASK_TYPES, MAX_TASKS_PER_TRACE } from "@alook/shared";
 import { log } from "@/lib/logger";
-import { broadcastToUser } from "@/lib/broadcast";
+import { broadcastToUser, broadcastToDaemon } from "@/lib/broadcast";
 import { messageToResponse, taskToResponse } from "@/lib/api/responses";
 import { invalidate, cacheKeys } from "@/lib/cache";
+import { TaskPayloadBuilder } from "@/lib/services/task-payload-builder";
 
 const taskQueries = queries.task;
 const agentQueries = queries.agent;
@@ -51,6 +52,10 @@ export class TaskService {
       parentTaskId: opts?.parentTaskId ?? null,
     });
     invalidate(cacheKeys.activeTaskCounts(workspaceId)).catch(() => {});
+    // Push task to daemon via WS (best-effort). Awaited to ensure task state
+    // settles (dispatched on success, reverted to queued on failure) before
+    // the HTTP response returns, preventing races with subsequent poll calls.
+    await this.pushTaskToDaemon(task, workspaceId).catch(() => {});
     return task;
   }
 
@@ -405,6 +410,33 @@ export class TaskService {
       } catch (err) {
         log.warn("cancelTrace: failed to cancel task", { traceId, convId, err });
       }
+    }
+  }
+
+  private async pushTaskToDaemon(
+    task: Awaited<ReturnType<typeof taskQueries.createTask>>,
+    workspaceId: string,
+  ) {
+    const runtime = await queries.runtime.getAgentRuntime(this.db, task.runtimeId);
+    if (!runtime) return;
+
+    const dispatched = await taskQueries.dispatchTaskById(this.db, task.id, workspaceId);
+    if (!dispatched) return;
+
+    const builder = new TaskPayloadBuilder(this.db);
+    const payloads = await builder.buildFullPayloads([dispatched], workspaceId);
+    if (payloads.length === 0) {
+      await taskQueries.revertDispatchedToQueued(this.db, task.id, workspaceId);
+      return;
+    }
+
+    try {
+      await broadcastToDaemon(runtime.daemonId, {
+        type: "daemon.tasks",
+        tasks: payloads,
+      });
+    } catch {
+      await taskQueries.revertDispatchedToQueued(this.db, task.id, workspaceId);
     }
   }
 }

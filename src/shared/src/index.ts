@@ -25,6 +25,7 @@ export type {
   Channel,
   WsMessage,
   WorkspaceFileResult,
+  DaemonPushMessage,
 } from "./types";
 
 // API types
@@ -108,6 +109,8 @@ export {
   TaskAgentDataApiSchema,
   TaskApiBaseSchema,
   TaskApiSchema,
+  HeartbeatRequestSchema,
+  SweepRequestSchema,
   PollRequestSchema,
   PollResponseSchema,
   PollMeetingItemSchema,
@@ -158,6 +161,7 @@ export {
   WorkspaceFileEntrySchema,
   WorkspaceFileReportSchema,
   CreateStudioRequestSchema,
+  DaemonPushMessageSchema,
 } from "./schemas";
 
 export type {
@@ -165,6 +169,8 @@ export type {
   TaskAgentDataApi,
   TaskApiBase,
   TaskApi,
+  HeartbeatRequest,
+  SweepRequest,
   PollRequest,
   PollResponse,
   PollMeetingItem,
@@ -200,6 +206,7 @@ export type {
   WorkspaceFileBrowseRequest,
   WorkspaceFileReport,
   CreateStudioRequest,
+  DaemonPushMessageType,
 } from "./schemas";
 
 // Database

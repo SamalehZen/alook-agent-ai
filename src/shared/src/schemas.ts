@@ -112,6 +112,18 @@ export const TaskApiSchema = TaskApiBaseSchema.extend({
 export type TaskApi = z.infer<typeof TaskApiSchema>;
 
 // ---------------------------------------------------------------------------
+// Heartbeat (lightweight liveness ping, independent of poll)
+// ---------------------------------------------------------------------------
+
+export const HeartbeatRequestSchema = z.object({
+  daemon_id: z.string().min(1),
+});
+export type HeartbeatRequest = z.infer<typeof HeartbeatRequestSchema>;
+
+export const SweepRequestSchema = HeartbeatRequestSchema;
+export type SweepRequest = HeartbeatRequest;
+
+// ---------------------------------------------------------------------------
 // Poll request/response (replaces heartbeat + per-runtime claim)
 // ---------------------------------------------------------------------------
 
@@ -150,6 +162,21 @@ export const PollResponseSchema = z.object({
   meetings: z.array(PollMeetingItemSchema).optional(),
 });
 export type PollResponse = z.infer<typeof PollResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Daemon push messages (server -> daemon WebSocket)
+// ---------------------------------------------------------------------------
+
+export const DaemonPushMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("daemon.tasks"), tasks: z.array(TaskApiSchema) }),
+  z.object({ type: z.literal("daemon.file_requests"), workspaceId: z.string(), requests: z.array(FileRequestItemSchema) }),
+  z.object({ type: z.literal("daemon.meetings"), meetings: z.array(PollMeetingItemSchema) }),
+  z.object({ type: z.literal("daemon.evict"), workspaceId: z.string() }),
+  z.object({ type: z.literal("daemon.update"), version: z.string() }),
+  z.object({ type: z.literal("daemon.rescan") }),
+  z.object({ type: z.literal("daemon.kill"), workspaceId: z.string(), taskId: z.string(), targetTaskId: z.string() }),
+]);
+export type DaemonPushMessageType = z.infer<typeof DaemonPushMessageSchema>;
 
 // ---------------------------------------------------------------------------
 // Register response

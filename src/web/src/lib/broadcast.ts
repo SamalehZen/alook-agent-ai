@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare"
-import type { WsMessage } from "@alook/shared"
+import type { WsMessage, DaemonPushMessage } from "@alook/shared"
 import { DEV_WS_DO_URL, createLogger } from "@alook/shared"
 
 const log = createLogger({ service: "broadcast" })
@@ -17,23 +17,18 @@ async function doSend(url: string, body: string, label: Record<string, string>) 
     })
     if (res.ok) return
     log.warn("broadcast service-binding non-ok", { ...label, status: res.status })
-    return
   } catch {
     // Service binding unavailable — fall through to HTTP
   }
 
   const fallbackUrl = wsDoUrl || DEV_WS_DO_URL
-  try {
-    const res = await fetch(`${fallbackUrl}${url}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-    })
-    if (!res.ok) {
-      log.warn("broadcast failed", { ...label, status: res.status })
-    }
-  } catch (err) {
-    log.warn("broadcast error", { ...label, err: String(err) })
+  const res = await fetch(`${fallbackUrl}${url}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  })
+  if (!res.ok) {
+    throw new Error(`broadcast failed: ${res.status}`)
   }
 }
 
@@ -61,5 +56,13 @@ export function broadcastToAgent(agentId: string, message: WsMessage): Promise<v
     `/broadcast/${agentId}`,
     JSON.stringify(message),
     { agentId, type: message.type },
+  )
+}
+
+export function broadcastToDaemon(daemonId: string, message: DaemonPushMessage): Promise<void> {
+  return sendBroadcast(
+    `/broadcast/daemon/${daemonId}`,
+    JSON.stringify(message),
+    { daemonId, type: message.type },
   )
 }
