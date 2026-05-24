@@ -382,6 +382,10 @@ describe("production workspace PET mounting", () => {
     expect(workspacePetLayer).not.toContain("isHome");
     expect(workspacePetLayer).toContain("petSettings.enabled");
     expect(workspacePetLayer).toContain("dynamic<CloudCodeMonsterPetProps>");
+    expect(inboxCountContext).toContain("notificationToken");
+    expect(inboxCountContext).toContain("setNotificationToken((token) => token + 1)");
+    expect(workspacePetLayer).toContain("useInboxCount");
+    expect(workspacePetLayer).toContain("notificationToken={notificationToken}");
     expect(petComponent).toContain("const EMPTY_PEEK_TARGETS");
     expect(petComponent).toContain("peekTargets = EMPTY_PEEK_TARGETS");
     expect(petComponent).toContain("peekTargetsRef.current = peekTargets");
