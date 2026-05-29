@@ -1182,6 +1182,32 @@
 .tiptap u { text-decoration: underline; }
 .tiptap s { text-decoration: line-through; }
 
+/* ── Chat composer (TipTap input) — uniform font, scoped overrides ──
+   The shared .tiptap rules above (line-height 1.6, p margins) would bleed into
+   the chat input. Scope here to keep every line one size/weight and let the
+   px-13 py-3 wrapper own padding. Higher specificity (two classes) beats the
+   single-class base rules. Do NOT touch the shared .tiptap rules — the
+   comment/email editors depend on them. */
+.chat-composer .tiptap {
+  line-height: 24px; /* matches .chat-input-line-height */
+  outline: none;
+}
+.chat-composer .tiptap p,
+.chat-composer .tiptap li {
+  font-size: 1rem;
+  font-weight: 400;
+  margin: 0;
+  line-height: 24px;
+}
+.chat-composer .tiptap > p:first-child { margin-top: 0; }
+.chat-composer .tiptap > p:last-child { margin-bottom: 0; }
+.chat-composer .tiptap ul,
+.chat-composer .tiptap ol {
+  margin: 0;
+  padding-left: 1.5em;
+}
+.chat-composer .tiptap li { margin: 0; }
+
 /* ── Thin scrollbar (code blocks, tool panels, chat scroll) ── */
 .markdown pre,
 [data-streamdown] pre,
