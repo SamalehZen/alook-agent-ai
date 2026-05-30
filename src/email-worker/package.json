@@ -1,6 +1,6 @@
 {
   "name": "@alook/email-worker",
-  "version": "0.0.107",
+  "version": "0.0.108",
   "private": true,
   "scripts": {
     "dev": "wrangler dev --persist-to ../web/.wrangler/state",
