@@ -22,7 +22,7 @@ import {
 import type { AgentRuntime as Runtime } from "@alook/shared";
 import type { WsMessage } from "@alook/shared";
 import { isTauri, isDesktop } from "@alook/shared";
-import { listRuntimes, createMachineToken } from "@/lib/api";
+import { listRuntimes, createMachineToken, getMachineTokenStatus } from "@/lib/api";
 import { useUserWs } from "@/lib/use-user-ws";
 import type { TemplatePreset } from "@/lib/templates";
 
@@ -44,6 +44,8 @@ export function StudioOnboardingClient({
   const workspaceIdRef = useRef(workspaceId);
   useEffect(() => { workspaceIdRef.current = workspaceId; }, [workspaceId]);
   const [runtimes, setRuntimes] = useState<Runtime[]>([]);
+  const runtimesRef = useRef(runtimes);
+  useEffect(() => { runtimesRef.current = runtimes; }, [runtimes]);
   const [loadingRuntimes, setLoadingRuntimes] = useState(!!initialWorkspaceId);
   const [scenarioId, setScenarioId] = useState<ScenarioId | null>(
     initialTemplate ? initialTemplate.baseScenario : null,
@@ -52,6 +54,7 @@ export function StudioOnboardingClient({
     isNewWorkspace ? "" : (workspaceName === "Personal" ? "" : workspaceName),
   );
   const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
+  const [nameLocked, setNameLocked] = useState(false);
   const [checkingName, setCheckingName] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [creating, setCreating] = useState(false);
@@ -77,10 +80,40 @@ export function StudioOnboardingClient({
       .finally(() => setLoadingRuntimes(false));
   }, [workspaceId]);
 
+  // Recover token state on mount (handles page refresh after register)
+  useEffect(() => {
+    getMachineTokenStatus()
+      .then((data) => {
+        if (data.status === "registered" || data.status === "active") {
+          setMachineRegistered(true);
+          if (data.daemon_online) setDaemonOnline(true);
+          if (data.runtimes?.length) {
+            setRuntimes(data.runtimes.map((rt) => ({
+              id: rt.id,
+              workspace_id: "",
+              daemon_id: data.hostname || null,
+              runtime_mode: "local",
+              provider: rt.type,
+              status: rt.status,
+              device_info: data.hostname || "",
+              metadata: { version: rt.version },
+              last_seen_at: null,
+              created_at: "",
+              updated_at: "",
+            })));
+          }
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // WebSocket for runtime registration events
   const handleWsMessage = useCallback((msg: WsMessage) => {
     const currentWsId = workspaceIdRef.current;
-    if (msg.type === "runtime.registered") {
+    if (msg.type === "machine.registered") {
+      setMachineRegistered(true);
+    } else if (msg.type === "runtime.registered") {
       setMachineRegistered(true);
       const eventWsId = msg.workspaceId;
       if (eventWsId && !currentWsId) {
@@ -91,10 +124,34 @@ export function StudioOnboardingClient({
       }
     } else if (msg.type === "runtime.status" && msg.status === "online") {
       setDaemonOnline(true);
+      if (runtimesRef.current.length === 0) {
+        getMachineTokenStatus().then(data => {
+          if (data.runtimes?.length) {
+            setRuntimes(data.runtimes.map(rt => ({
+              id: rt.id,
+              workspace_id: "",
+              daemon_id: data.hostname || null,
+              runtime_mode: "local",
+              provider: rt.type,
+              status: "online" as const,
+              device_info: data.hostname || "",
+              metadata: { version: rt.version },
+              last_seen_at: null,
+              created_at: "",
+              updated_at: "",
+            })));
+          }
+        }).catch(() => {});
+      } else {
+        setRuntimes(prev => prev.map(r => ({ ...r, status: "online" })));
+      }
       const wsId = workspaceIdRef.current;
       if (wsId) {
         listRuntimes(wsId).then(setRuntimes).catch(() => {});
       }
+    } else if (msg.type === "runtime.status" && msg.status === "offline") {
+      setDaemonOnline(false);
+      setRuntimes(prev => prev.map(r => ({ ...r, status: "offline" })));
     }
   }, []);
 
@@ -209,12 +266,18 @@ export function StudioOnboardingClient({
       }
       const data = (await res.json()) as { available: boolean };
       setNameAvailable(data.available);
+      if (data.available) setNameLocked(true);
     } catch {
       setNameAvailable(null);
       toast.error("Failed to check name availability");
     } finally {
       setCheckingName(false);
     }
+  };
+
+  const handleUnlockName = () => {
+    setNameLocked(false);
+    setNameAvailable(null);
   };
 
   const handleGenerateToken = useCallback(async () => {
@@ -238,31 +301,72 @@ export function StudioOnboardingClient({
   const handleCreate = async () => {
     setCreating(true);
     try {
-      if (!workspaceId) {
+      let resolvedWorkspaceId = workspaceId;
+
+      if (!resolvedWorkspaceId) {
+        // Create workspace + bind machine token
+        const wsRes = await fetch("/api/workspaces", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: studioName.trim() || "Personal",
+            slug: (studioName.trim() || "personal").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+          }),
+        });
+        if (!wsRes.ok) {
+          const err = (await wsRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(err.error || "Failed to create workspace");
+        }
+        const wsData = (await wsRes.json()) as { id: string; slug: string };
+        resolvedWorkspaceId = wsData.id;
+        setWorkspaceId(resolvedWorkspaceId);
+
+        // Bind workspace to machine token
+        const bindRes = await fetch("/api/machine-tokens/bind-workspace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspace_id: resolvedWorkspaceId }),
+        });
+        if (!bindRes.ok) {
+          // Cleanup orphaned workspace
+          await fetch(`/api/workspaces/${resolvedWorkspaceId}`, { method: "DELETE" }).catch(() => {});
+          setWorkspaceId(null);
+          const err = (await bindRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(err.error || "Failed to bind workspace");
+        }
+      }
+
+      if (!resolvedWorkspaceId) {
         toast.error("Please connect a computer first");
         setCreating(false);
         return;
       }
 
-      // In Tauri desktop, the app IS the computer — wait for its runtime to
-      // come online if members don't have runtimeIds assigned yet.
+      // Wait for real runtimes and resolve temp IDs to actual runtime IDs.
+      // After bind-workspace, the daemon registers runtimes — poll until available.
       let resolvedMembers = members;
-      if (isTauriDesktop && members.some((m) => !m.runtimeId)) {
+      const needsRuntimeResolution = members.some((m) => !m.runtimeId || m.runtimeId.startsWith("temp_"));
+      if (needsRuntimeResolution) {
         let attempts = 0;
         let freshRuntimes: Runtime[] = [];
         while (attempts < 10) {
-          freshRuntimes = await listRuntimes(workspaceId);
-          const firstOnline = freshRuntimes.find((r) => r.status === "online");
-          if (firstOnline) {
-            resolvedMembers = members.map((m) =>
-              m.runtimeId ? m : { ...m, runtimeId: firstOnline.id },
-            );
-            break;
-          }
+          freshRuntimes = await listRuntimes(resolvedWorkspaceId);
+          if (freshRuntimes.some((r) => r.status === "online")) break;
           await new Promise((r) => setTimeout(r, 1000));
           attempts++;
         }
-        if (resolvedMembers.some((m) => !m.runtimeId)) {
+        const onlineFresh = freshRuntimes.filter((r) => r.status === "online");
+        if (onlineFresh.length > 0) {
+          resolvedMembers = members.map((m) => {
+            if (!m.runtimeId || m.runtimeId.startsWith("temp_")) {
+              const tempProvider = runtimes.find((r) => r.id === m.runtimeId)?.provider;
+              const match = onlineFresh.find((r) => r.provider === tempProvider) || onlineFresh[0];
+              return { ...m, runtimeId: match.id };
+            }
+            return m;
+          });
+        }
+        if (resolvedMembers.some((m) => !m.runtimeId || m.runtimeId.startsWith("temp_"))) {
           toast.error("Waiting for runtime — please ensure the daemon is running");
           setCreating(false);
           return;
@@ -273,7 +377,7 @@ export function StudioOnboardingClient({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Workspace-ID": workspaceId,
+          "X-Workspace-ID": resolvedWorkspaceId,
         },
         body: JSON.stringify({
           name: studioName.trim() || undefined,
@@ -313,9 +417,9 @@ export function StudioOnboardingClient({
   const canCreate =
     scenarioId &&
     members.length > 0 &&
-    (isTauriDesktop || members.every((m) => m.runtimeId)) &&
+    (isTauriDesktop || isNewWorkspace || members.every((m) => m.runtimeId)) &&
     nameValid &&
-    (hasOnlineRuntime || machineRegistered || isTauriDesktop);
+    (hasOnlineRuntime || (machineRegistered && daemonOnline && runtimes.length > 0) || isTauriDesktop);
 
   // Page 1: Scenario selection
   if (!scenarioId) {
@@ -447,16 +551,28 @@ export function StudioOnboardingClient({
                   }}
                   placeholder="e.g. Atlas Lab"
                   className="text-sm"
+                  disabled={nameLocked}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCheckName}
-                  disabled={!studioName.trim() || checkingName}
-                  className="shrink-0"
-                >
-                  {checkingName ? <Loader2 className="size-3 animate-spin" /> : "Check"}
-                </Button>
+                {nameLocked ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUnlockName}
+                    className="shrink-0"
+                  >
+                    Edit
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckName}
+                    disabled={!studioName.trim() || checkingName}
+                    className="shrink-0"
+                  >
+                    {checkingName ? <Loader2 className="size-3 animate-spin" /> : "Check"}
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -494,11 +610,11 @@ export function StudioOnboardingClient({
             {!isTauriDesktop && (
               <div className="space-y-3">
                 <h2 className="text-base font-semibold tracking-tight">Connect a computer</h2>
-                {hasOnlineRuntime ? (
+                {(hasOnlineRuntime || (machineRegistered && daemonOnline && runtimes.length > 0)) ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-emerald-600 flex items-center gap-1">
-                        <CheckCircle2 className="size-3" /> {onlineMachineCount} computer{onlineMachineCount > 1 ? "s" : ""} connected
+                        <CheckCircle2 className="size-3" /> {onlineMachineCount || 1} computer{(onlineMachineCount || 1) > 1 ? "s" : ""} connected
                       </p>
                       <button
                         type="button"
@@ -551,7 +667,9 @@ export function StudioOnboardingClient({
                   <Loader2 className="size-4 animate-spin mr-2" />
                   Launching...
                 </>
-              ) : isNewWorkspace && studioName.trim() && nameAvailable !== true ? (
+              ) : isNewWorkspace && nameAvailable === false ? (
+                "Name unavailable"
+              ) : isNewWorkspace && nameAvailable !== true ? (
                 "Check company name first"
               ) : (
                 "Launch company"

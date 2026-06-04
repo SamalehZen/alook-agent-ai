@@ -146,8 +146,8 @@ async function pollAndActivate(opts: {
   if (email) {
     console.log(`\nLogged in as ${email}`);
   }
-  console.log(`Workspace: ${result.workspaceName} (${result.workspaceId})`);
-  console.log(`Runtimes: ${result.runtimeProviders.join(", ")}`);
+  console.log(`Machine: ${result.daemonId} (status: ${result.tokenStatus})`);
+  console.log(`Workspace binding will happen when you launch a company.`);
 }
 
 // Background polling entry point — invoked as a detached child process in non-TTY mode
@@ -196,7 +196,7 @@ async function checkExistingAuth(serverUrl: string, profile?: string): Promise<{
       // Non-fatal — proceed without email
     }
 
-    return { valid: true, email, workspaceName: ws.name };
+    return { valid: true, email, workspaceName: ws.name ?? undefined };
   } catch {
     return { valid: false };
   }

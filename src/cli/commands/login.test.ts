@@ -136,7 +136,7 @@ describe("alook login", () => {
       expect.objectContaining({
         server_url: "http://localhost:3000",
         watched_workspaces: [
-          { id: "sp_ws1", name: "My Workspace", token: "al_machine_tok", agent_ids: ["ag_1"] },
+          { id: null, name: null, token: "al_machine_tok", status: "registered", agent_ids: [] },
         ],
       }),
     );
