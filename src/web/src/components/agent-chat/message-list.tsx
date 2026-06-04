@@ -11,7 +11,7 @@ import { highlightMentions } from "@/lib/highlight-mentions";
 import { TaskStream } from "@/components/task-stream";
 import { RuntimeErrorBlock } from "@/components/agent-chat/runtime-error-block";
 import { AnimatedAvatar, type AvatarConfig } from "@/components/avatar";
-import { FileText, Flag, Copy, Check } from "lucide-react";
+import { FileText, Flag, Copy, Check, MessageSquareQuote } from "lucide-react";
 import { EmailCard } from "@/components/agent-chat/event-cards/email-card";
 import { CalendarCard } from "@/components/agent-chat/event-cards/calendar-card";
 import { IssueCard } from "@/components/agent-chat/event-cards/issue-card";
@@ -77,6 +77,7 @@ export interface MessageItemProps {
   /** This optimistic user message failed to send — show the inline retry affordance. */
   isSendFailed?: boolean;
   onRetrySend?: (messageId: string) => void;
+  onQuote?: (messageId: string, excerpt: string) => void;
 }
 
 type EmailData = {
@@ -423,6 +424,7 @@ export const MessageItem = memo(function MessageItem({
   agentAvatarConfig,
   isSendFailed,
   onRetrySend,
+  onQuote,
 }: MessageItemProps) {
   const { copy, copied } = useCopyToClipboard();
 
@@ -484,6 +486,14 @@ export const MessageItem = memo(function MessageItem({
       label: copied ? "Copied" : "Copy",
       icon: copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />,
       onClick: doCopy,
+    });
+  }
+  if (onQuote && (msg.role === "assistant" || msg.role === "user")) {
+    messageActions.push({
+      key: "quote",
+      label: "Quote",
+      icon: <MessageSquareQuote className="size-3.5" />,
+      onClick: () => onQuote(msg.id, msg.content.slice(0, 100)),
     });
   }
   if (msg.role === "assistant" && onToggleFlag) {
@@ -551,6 +561,24 @@ export const MessageItem = memo(function MessageItem({
         const messageBody = slashMatch ? (slashMatch[2] || "") : msg.content;
         return (
           <div className="group/msg flex flex-col items-end" data-message-id={msg.id} {...(msg.task_id ? { "data-task-id": msg.task_id } : {})}>
+            {(() => {
+              const quote = msg.metadata?.quote as { messageId?: string; excerpt?: string } | undefined;
+              const quoteId = quote?.messageId;
+              if (!quoteId) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = document.querySelector(`[data-message-id="${CSS.escape(quoteId)}"]`);
+                    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="max-w-[80%] mb-0.5 flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-left"
+                >
+                  <MessageSquareQuote className="size-3 shrink-0 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground truncate">{quote.excerpt}</span>
+                </button>
+              );
+            })()}
             <div
               className={cn(
                 "max-w-[80%] px-3 py-1.5 bg-primary text-primary-foreground text-base relative",

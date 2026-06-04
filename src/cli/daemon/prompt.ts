@@ -50,6 +50,13 @@ export function buildTaskObject(task: Task, attachments?: Attachment[]): Record<
   };
   if (task.type === "user_dm_message") {
     obj.notice = DM_RESPONSE_NOTICE;
+    const ctx = task.context as Record<string, unknown> | undefined;
+    if (ctx?.message_id) {
+      obj.message_id = ctx.message_id;
+    }
+    if (ctx?.quoted_message) {
+      obj.quoted_message = ctx.quoted_message;
+    }
   }
   if (task.type === "email_notification") {
     const ctx = task.context as Record<string, unknown> | undefined;

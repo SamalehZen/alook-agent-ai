@@ -188,7 +188,7 @@ export function AgentChatView({
   const [caretIndex, setCaretIndex] = useState<number | null>(null);
   const [renderNow] = useState(() => Date.now());
 
-  const [quotedText, setQuotedText] = useState<string | null>(() => {
+  const [quotedMessage, setQuotedMessage] = useState<{ id: string; excerpt: string } | null>(() => {
     if (typeof window === "undefined") return null;
     try {
       const meta = JSON.parse(
@@ -196,7 +196,8 @@ export function AgentChatView({
           `chat-draft-meta:${agentId}:${targetConvId ?? "default"}`,
         ) ?? "null",
       );
-      return meta?.quote ?? null;
+      const q = meta?.quote;
+      return q && typeof q === "object" && q.id ? q : null;
     } catch {
       return null;
     }
@@ -219,7 +220,7 @@ export function AgentChatView({
   // because `slashCommand` is defined after `useAgentChat` (it needs the
   // hook-created `composerRef`).
   const inputRef = useLatest(input);
-  const quotedTextRef = useLatest(quotedText);
+  const quotedMessageRef = useLatest(quotedMessage);
   const pendingFilesRef = useLatest(pendingFiles);
   const activeSkillRef = useRef<SkillEntry | null>(null);
   // Holds the `slashCommand` instance (created after this hook call, since it
@@ -248,12 +249,12 @@ export function AgentChatView({
       setFlaggedIds,
       setPendingFiles,
       setInput,
-      setQuotedText,
+      setQuotedMessage,
       setActiveSkill: (skill: SkillEntry | null) =>
         slashCommandRef.current?.setActiveSkill(skill),
       clearActiveSkill: () => slashCommandRef.current?.clearActiveSkill(),
       inputRef,
-      quotedTextRef,
+      quotedMessageRef,
       pendingFilesRef,
       activeSkillRef,
       draftMetaRestoredRef,
@@ -418,7 +419,7 @@ export function AgentChatView({
     const key = `chat-draft-meta:${agentId}:${targetConvId ?? "default"}`;
     const meta: {
       skill?: { name: string; description: string } | null;
-      quote?: string | null;
+      quote?: { id: string; excerpt: string } | null;
     } = {};
     if (slashCommand.activeSkill) {
       meta.skill = {
@@ -426,15 +427,15 @@ export function AgentChatView({
         description: slashCommand.activeSkill.description,
       };
     }
-    if (quotedText) {
-      meta.quote = quotedText;
+    if (quotedMessage) {
+      meta.quote = quotedMessage;
     }
     if (meta.skill || meta.quote) {
       localStorage.setItem(key, JSON.stringify(meta));
     } else {
       localStorage.removeItem(key);
     }
-  }, [slashCommand.activeSkill, quotedText, agentId, targetConvId]);
+  }, [slashCommand.activeSkill, quotedMessage, agentId, targetConvId]);
 
   useEffect(() => {
     if (!sending) {
@@ -448,7 +449,12 @@ export function AgentChatView({
 
   const handleQuoteSelection = useCallback(() => {
     if (selectionPopup) {
-      setQuotedText(selectionPopup.text);
+      const excerpt = selectionPopup.text.slice(0, 100);
+      setQuotedMessage(
+        selectionPopup.messageId
+          ? { id: selectionPopup.messageId, excerpt }
+          : null,
+      );
       setSelectionPopup(null);
       window.getSelection()?.removeAllRanges();
       composerRef.current?.focus();
@@ -456,6 +462,11 @@ export function AgentChatView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef and setSelectionPopup are stable
   }, [selectionPopup]);
 
+  const handleQuoteMessage = useCallback((messageId: string, excerpt: string) => {
+    setQuotedMessage({ id: messageId, excerpt });
+    composerRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef is stable
+  }, []);
 
   useEffect(() => {
     if (!issueSheetOpen || !selectedIssueId) return;
@@ -770,6 +781,7 @@ export function AgentChatView({
                     agentAvatarConfig={agentAvatarConfig}
                     isSendFailed={failedSends.has(msg.id)}
                     onRetrySend={handleRetrySend}
+                    onQuote={handleQuoteMessage}
                   />
                 </div>
               );
@@ -912,7 +924,7 @@ export function AgentChatView({
               className={cn(
                 "relative flex-1 min-w-0 flex flex-col rounded-3xl border border-border/50 bg-background/90 transition-[border-radius] duration-200",
                 "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
-                (isMultiLine || quotedText || slashCommand.activeSkill) &&
+                (isMultiLine || quotedMessage || slashCommand.activeSkill) &&
                 "rounded-2xl",
                 sending && "opacity-50",
                 dragging && "border-ring ring-3 ring-ring/50",
@@ -926,7 +938,7 @@ export function AgentChatView({
                 <div
                   className={cn(
                     "absolute inset-0 z-10 flex items-center justify-center bg-background/80 border-2 border-dashed border-ring pointer-events-none",
-                    isMultiLine || quotedText || slashCommand.activeSkill
+                    isMultiLine || quotedMessage || slashCommand.activeSkill
                       ? "rounded-2xl"
                       : "rounded-3xl",
                   )}
@@ -960,18 +972,17 @@ export function AgentChatView({
                   </button>
                 </div>
               )}
-              {quotedText && (
+              {quotedMessage && (
                 <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-1 border-b border-border/50">
                   <div className="flex-1 min-w-0 flex items-start gap-2">
                     <MessageSquareQuote className="size-3.5 shrink-0 mt-0.5 text-muted-foreground" />
                     <p className="text-xs text-muted-foreground truncate">
-                      {quotedText.slice(0, 120)}
-                      {quotedText.length > 120 ? "..." : ""}
+                      {quotedMessage.excerpt}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setQuotedText(null)}
+                    onClick={() => setQuotedMessage(null)}
                     className="shrink-0 p-0.5 rounded-sm hover:bg-muted-foreground/20 transition-colors text-muted-foreground"
                   >
                     <X className="size-3.5" />

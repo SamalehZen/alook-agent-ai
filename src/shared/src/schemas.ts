@@ -539,6 +539,7 @@ export type CreateConversationRequest = z.infer<
 
 export const CreateMessageRequestSchema = z.object({
   content: z.string().min(1, "content is required"),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type CreateMessageRequest = z.infer<typeof CreateMessageRequestSchema>;
 

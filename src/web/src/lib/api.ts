@@ -367,19 +367,21 @@ export const sendMessage = async (
   content: string,
   workspaceId: string,
   files?: File[],
+  metadata?: Record<string, unknown>,
 ): Promise<{ message: Message; task: TaskApi }> => {
   if (!files || files.length === 0) {
     return apiFetch<{ message: Message; task: TaskApi }>(
       `/api/conversations/${conversationId}/messages${wsQuery(workspaceId)}`,
       {
         method: "POST",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...(metadata ? { metadata } : {}) }),
       },
     );
   }
 
   const fd = new FormData();
   fd.append("content", content);
+  if (metadata) fd.append("metadata", JSON.stringify(metadata));
   for (const file of files) {
     fd.append("file", file);
   }
