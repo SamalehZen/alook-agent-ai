@@ -1,6 +1,6 @@
 {
   "productName": "Alook",
-  "version": "0.1.0",
+  "version": "0.0.120",
   "identifier": "ai.alook.desktop",
   "build": {
     "devUrl": "http://localhost:3000/workspaces?auto",
@@ -34,7 +34,10 @@
         "center": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 16, "y": 21 }
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 21
+        }
       }
     ],
     "security": {
@@ -43,16 +46,22 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://alook.ai/api/desktop/update/{{target}}/{{arch}}/{{current_version}}"],
+      "endpoints": [
+        "https://alook.ai/api/desktop/update/{{target}}/{{arch}}/{{current_version}}"
+      ],
       "pubkey": "RWQPlpaQzeEs/+9cMasjAS1iJ21kfounWfvXsXXqTrNI/nF+fz4OCyjJ"
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["alook"]
+        "schemes": [
+          "alook"
+        ]
       },
       "mobile": [
         {
-          "scheme": ["alook"],
+          "scheme": [
+            "alook"
+          ],
           "host": "alook.ai"
         }
       ]
