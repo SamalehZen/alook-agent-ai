@@ -254,6 +254,11 @@ export class OpenCodeBackend implements AgentBackend {
           lastError = stderr;
         }
 
+        if (resultStatus === "completed" && !lastOutput && !turnDoneTriggered) {
+          resultStatus = "failed";
+          if (!lastError) lastError = "opencode exited without output";
+        }
+
         // Resolve sessionId promise (fallback if session event never fired)
         resolveSessionId(lastSessionId);
 
