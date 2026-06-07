@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = `New email from ${body.from}: ${body.subject}`;
-    const emailMetadata = JSON.stringify({ emailId: email.id });
+    const emailMetadata = JSON.stringify({ emailId: email.id, subject: body.subject, from: body.from, to: body.to, direction: "inbound" as const });
     const msg = await queries.message.createMessage(db, {
       conversationId,
       role: "event",
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
           content: msg.content,
           task_id: msg.taskId,
           attachment_ids: null,
-          metadata: { emailId: email.id },
+          metadata: { emailId: email.id, subject: body.subject, from: body.from, to: body.to, direction: "inbound" },
           created_at: msg.createdAt,
         },
       }).catch(() => {})

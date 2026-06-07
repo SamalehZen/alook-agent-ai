@@ -26,13 +26,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Monitor, Plus } from "lucide-react";
 
 import type { AgentRuntime as Runtime } from "@alook/shared";
-import { semverGte } from "@alook/shared";
-import { cliCmd } from "@/lib/utils";
+import { semverGte, isTauri, isDesktop, tauriInvoke } from "@alook/shared";
+import { cliCmd, getAppMode } from "@/lib/utils";
 import { ProviderLogo } from "@/components/provider-logo";
 import { triggerRuntimeUpdate, triggerRuntimeRescan, fetchLatestCliVersion } from "@/lib/api";
 import { Loader2, RefreshCw } from "lucide-react";
 
 import { ConnectMachineSteps } from "@/components/connect-machine-steps";
+import { trackRuntimeConnected } from "@/lib/analytics";
 
 export default function RuntimesPage() {
   const { agents, runtimes, loading, handleGenerateToken, handleDeleteMachine, subscribeWs, workspaceId } =
@@ -40,6 +41,10 @@ export default function RuntimesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const mode = getAppMode();
+  const isMobileApp = mode === "mobile";
+  const isTauriDesktop = isTauri() && isDesktop();
+  const hideNewMachine = isMobileApp || isTauriDesktop;
 
   const [sheetOpen, setSheetOpen] = useState(() => searchParams.has("connect"));
   const [generatedToken, setGeneratedToken] = useState("");
@@ -93,6 +98,7 @@ export default function RuntimesPage() {
         registeredDaemonIdRef.current &&
         msg.daemonId === registeredDaemonIdRef.current
       ) {
+        trackRuntimeConnected({ runtime_type: "desktop" });
         setSheetOpen(false);
         setGeneratedToken("");
         setRegisteredDaemonId(null);
@@ -271,19 +277,21 @@ export default function RuntimesPage() {
             Your machines and their agent runtimes.
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setGeneratedToken("");
-            setRegisteredDaemonId(null);
-            setSheetOpen(true);
-          }}
-          disabled={generatingToken}
-        >
-          <Plus className="size-3.5" />
-          New machine
-        </Button>
+        {!hideNewMachine && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setGeneratedToken("");
+              setRegisteredDaemonId(null);
+              setSheetOpen(true);
+            }}
+            disabled={generatingToken}
+          >
+            <Plus className="size-3.5" />
+            New machine
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5">
@@ -291,18 +299,22 @@ export default function RuntimesPage() {
           <div className="flex flex-1 items-center justify-center min-h-[60vh]">
             <div className="text-center animate-[fade-up_400ms_ease-out_both]">
               <p className="text-muted-foreground text-sm">
-                Connect a machine to start running agents locally.
+                {hideNewMachine
+                  ? "No machines connected. Use the desktop app or CLI to connect a machine."
+                  : "Connect a machine to start running agents locally."}
               </p>
-              <Button
-                size="sm"
-                className="mt-4 glow-border"
-                onClick={() => {
-                  setGeneratedToken("");
-                  setSheetOpen(true);
-                }}
-              >
-                Connect Machine
-              </Button>
+              {!hideNewMachine && (
+                <Button
+                  size="sm"
+                  className="mt-4 glow-border"
+                  onClick={() => {
+                    setGeneratedToken("");
+                    setSheetOpen(true);
+                  }}
+                >
+                  Connect Machine
+                </Button>
+              )}
             </div>
           </div>
         ) : (
@@ -440,23 +452,41 @@ export default function RuntimesPage() {
                           <p className="text-[11px] text-muted-foreground mb-1.5">
                             Bring this machine online:
                           </p>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <div
-                                  className="relative overflow-hidden rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground cursor-pointer hover:bg-muted/80 transition-colors"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(`${cliCmd()} daemon start`);
-                                    toast.success("Copied to clipboard");
-                                  }}
-                                />
-                              }
+                          {mode === "desktop" && isTauri() ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-7 text-[11px]"
+                              onClick={async () => {
+                                try {
+                                  await tauriInvoke("daemon_start");
+                                  toast.success("Daemon started");
+                                } catch {
+                                  toast.error("Failed to start daemon");
+                                }
+                              }}
                             >
-                              <span className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-linear-to-r from-transparent via-(--shimmer-peak) to-transparent" />
-                              <span className="relative">{cliCmd()} daemon start</span>
-                            </TooltipTrigger>
-                            <TooltipContent>Click to copy</TooltipContent>
-                          </Tooltip>
+                              Start Daemon
+                            </Button>
+                          ) : (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <div
+                                    className="relative overflow-hidden rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground cursor-pointer hover:bg-muted/80 transition-colors"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(`${cliCmd()} daemon start`);
+                                      toast.success("Copied to clipboard");
+                                    }}
+                                  />
+                                }
+                              >
+                                <span className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-linear-to-r from-transparent via-(--shimmer-peak) to-transparent" />
+                                <span className="relative">{cliCmd()} daemon start</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Click to copy</TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                       )}
                     </div>

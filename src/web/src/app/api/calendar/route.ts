@@ -179,7 +179,12 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     const conv = await queries.conversation.getConversation(db, body.conversation_id, ws.workspaceId);
     if (conv) {
       const eventContent = `${body.title}`;
-      const metadata = JSON.stringify({ calendarEventId: created.id });
+      const metadata = JSON.stringify({
+        calendarEventId: created.id,
+        title: body.title,
+        scheduledAt: created.scheduledAt,
+        ...(created.repeatInterval ? { repeatInterval: created.repeatInterval } : {}),
+      });
       const eventMsg = await queries.message.createMessage(db, {
         conversationId: body.conversation_id,
         role: "event",
@@ -196,7 +201,12 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
           content: eventMsg.content,
           task_id: eventMsg.taskId,
           attachment_ids: null,
-          metadata: { calendarEventId: created.id },
+          metadata: {
+            calendarEventId: created.id,
+            title: body.title,
+            scheduledAt: created.scheduledAt,
+            ...(created.repeatInterval ? { repeatInterval: created.repeatInterval } : {}),
+          },
           created_at: eventMsg.createdAt,
         },
       }).catch(() => { });

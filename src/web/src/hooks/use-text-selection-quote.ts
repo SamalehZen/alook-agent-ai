@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export type SelectionPopup = {
   text: string;
+  messageId: string | null;
   x: number;
   y: number;
 } | null;
@@ -37,13 +38,16 @@ export function useTextSelectionQuote() {
       range.commonAncestorContainer instanceof HTMLElement
         ? range.commonAncestorContainer
         : range.commonAncestorContainer.parentElement;
-    if (!container?.closest("[data-quote-source]")) {
+    const quoteSource = container?.closest("[data-quote-source]");
+    if (!quoteSource) {
       setSelectionPopup(null);
       return;
     }
+    const msgEl = quoteSource.closest("[data-message-id]");
+    const messageId = msgEl?.getAttribute("data-message-id") ?? null;
     const rects = range.getClientRects();
     const lastRect = rects[rects.length - 1] || range.getBoundingClientRect();
-    setSelectionPopup({ text, x: lastRect.right, y: lastRect.top - 4 });
+    setSelectionPopup({ text, messageId, x: lastRect.right, y: lastRect.top - 4 });
   }, []);
 
   useEffect(() => {

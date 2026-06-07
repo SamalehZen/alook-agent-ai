@@ -67,6 +67,7 @@ import type {
 import { toast } from "sonner";
 import type { ChatComposerHandle } from "@/components/agent-chat/chat-composer";
 import { useCachedMessages } from "@/hooks/use-cached-messages";
+import { trackAgentChatOpened, trackMessageSent } from "@/lib/analytics";
 
 const MESSAGE_LIMIT = 20;
 const MAX_CONV_FETCHES_PER_CLICK = 5;
@@ -91,12 +92,12 @@ export interface UseAgentChatExternal {
   setFlaggedIds: (ids: Set<string>) => void;
   setPendingFiles: (files: File[]) => void;
   setInput: (value: string) => void;
-  setQuotedText: (value: string | null) => void;
+  setQuotedMessage: (value: { id: string; excerpt: string } | null) => void;
   setActiveSkill: (skill: SkillEntry | null) => void;
   clearActiveSkill: () => void;
   // (b) Values the hook READS — owned outside, passed IN via useLatest ref.
   inputRef: MutableRefObject<string>;
-  quotedTextRef: MutableRefObject<string | null>;
+  quotedMessageRef: MutableRefObject<{ id: string; excerpt: string } | null>;
   pendingFilesRef: MutableRefObject<File[]>;
   activeSkillRef: MutableRefObject<SkillEntry | null>;
   // Component-owned ref written by the load effect (gates draft-meta persist).
@@ -125,11 +126,11 @@ export function useAgentChat(
     setFlaggedIds,
     setPendingFiles,
     setInput,
-    setQuotedText,
+    setQuotedMessage,
     setActiveSkill,
     clearActiveSkill,
     inputRef,
-    quotedTextRef,
+    quotedMessageRef,
     pendingFilesRef,
     activeSkillRef,
     draftMetaRestoredRef,
@@ -166,6 +167,16 @@ export function useAgentChat(
   useEffect(() => {
     writeToCacheRef.current = writeToCache;
   }, [writeToCache]);
+
+  const chatOpenedTracked = useRef(false);
+  useEffect(() => {
+    if (!conversation || chatOpenedTracked.current) return;
+    chatOpenedTracked.current = true;
+    trackAgentChatOpened({
+      agent_id: agentId,
+      is_first_chat: messages.length === 0,
+    });
+  }, [conversation, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const agentArtifacts = useMemo(
     () => artifacts.filter((a) => a.source === "agent"),
@@ -320,16 +331,17 @@ export function useAgentChat(
     if (metaRaw) {
       try {
         const meta = JSON.parse(metaRaw);
-        setQuotedText(meta.quote ?? null);
+        const q = meta.quote;
+        setQuotedMessage(q && typeof q === "object" && q.id ? q : null);
         setActiveSkill(
           meta.skill ? (meta.skill as SkillEntry) : null,
         );
       } catch {
-        setQuotedText(null);
+        setQuotedMessage(null);
         setActiveSkill(null);
       }
     } else {
-      setQuotedText(null);
+      setQuotedMessage(null);
       setActiveSkill(null);
     }
     draftMetaRestoredRef.current = true;
@@ -793,6 +805,10 @@ export function useAgentChat(
       initialScrollDone.current = true;
       if (scrollToTaskId || scrollToMessageId) {
         isNearBottom.current = false;
+        // Start at the bottom so the scroll-to-target effect scrolls UP (short
+        // distance to a recent task) instead of DOWN from the top (long distance
+        // through the entire conversation history).
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       } else if (propTargetConvId) {
         setTimeout(() => {
           const assistantMsgs = scrollRef.current?.querySelectorAll(
@@ -837,7 +853,7 @@ export function useAgentChat(
         `[data-task-id="${CSS.escape(scrollToTaskId)}"]`,
       );
       if (!el) return false;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("task-highlight");
       highlightTimerId = setTimeout(() => {
         el.classList.remove("task-highlight");
@@ -897,7 +913,7 @@ export function useAgentChat(
         `[data-message-id="${CSS.escape(scrollToMessageId)}"]`,
       );
       if (!el) return false;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("task-highlight");
       highlightTimerId = setTimeout(() => {
         el.classList.remove("task-highlight");
@@ -1359,6 +1375,7 @@ export function useAgentChat(
         }
       }, 3000);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- persistArtifactsToCache is stable (useCallback with no deps)
     [workspaceId],
   );
   useEffect(() => {
@@ -1493,6 +1510,13 @@ export function useAgentChat(
                 2000,
             );
             if (optimisticIdx !== -1) {
+              const optimisticId = prev[optimisticIdx].id;
+              setPendingFilesByMessage((p) => {
+                if (!p.has(optimisticId)) return p;
+                const next = new Map(p);
+                next.delete(optimisticId);
+                return next;
+              });
               const updated = [...prev];
               updated[optimisticIdx] = msg.message;
               return updated;
@@ -1527,6 +1551,7 @@ export function useAgentChat(
         });
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeChannelRef is a stable ref, read inside to avoid re-subscribing on channel change
   }, [subscribeWs, conversation?.id, workspaceId, agentId, persistArtifactsToCache]);
 
   useEffect(() => {
@@ -1563,10 +1588,8 @@ export function useAgentChat(
       return;
     }
 
-    // Prepend quoted text as blockquote if present
-    let content = quotedTextRef.current
-      ? `> ${quotedTextRef.current.split("\n").join("\n> ")}\n\n${rawContent}`
-      : rawContent;
+    let content = rawContent;
+    const quoteRef = quotedMessageRef.current;
 
     // Prepend skill instruction if active
     if (activeSkillRef.current) {
@@ -1574,9 +1597,10 @@ export function useAgentChat(
     }
 
     const filesToSend = [...pendingFilesRef.current];
+    trackMessageSent({ agent_id: agentId, message_length: content.length });
     setInput("");
     setPendingFiles([]);
-    setQuotedText(null);
+    setQuotedMessage(null);
     clearActiveSkill();
     setSending(true);
 
@@ -1592,6 +1616,7 @@ export function useAgentChat(
       content,
       task_id: null,
       attachment_ids: null,
+      ...(quoteRef ? { metadata: { quote: { messageId: quoteRef.id, excerpt: quoteRef.excerpt } } } : {}),
       created_at: new Date().toISOString(),
     };
 
@@ -1613,6 +1638,7 @@ export function useAgentChat(
         content,
         workspaceId,
         filesToSend.length > 0 ? filesToSend : undefined,
+        quoteRef ? { quote: { messageId: quoteRef.id, excerpt: quoteRef.excerpt } } : undefined,
       );
       // Clean up pending files ref
       setPendingFilesByMessage((prev) => {

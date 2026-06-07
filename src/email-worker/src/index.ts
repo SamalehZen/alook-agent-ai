@@ -159,7 +159,7 @@ export default {
     // domain: @alook.ai for the CF path, the custom-account domain for the SMTP path.
     const fromDomain = useCustomSmtp && customAccount
       ? customAccount.emailAddress.split("@").pop()
-      : "alook.ai"
+      : process.env.ALOOK_DOMAIN || "alook.ai"
     const outMessageId = `<${nanoid()}@${fromDomain}>`
 
     // Build the raw MIME once — used both as the wire message (CF path) and as the

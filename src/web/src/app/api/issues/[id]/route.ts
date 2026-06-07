@@ -96,7 +96,7 @@ export const PATCH = withAuth(async (req: NextRequest, ctx) => {
       conversationId: conversation.id,
       role: "event",
       content: `Issue created: ${existing.title}`,
-      metadata: JSON.stringify({ issueId: existing.id }),
+      metadata: JSON.stringify({ issueId: existing.id, title: existing.title, event: "created" as const, agentId: body.agent_id }),
     });
 
     const prompt = existing.description.trim()
@@ -132,7 +132,7 @@ export const PATCH = withAuth(async (req: NextRequest, ctx) => {
         conversationId: conversation.id,
         role: "event",
         content: `Issue dispatch failed: ${taskErr instanceof Error ? taskErr.message : "unknown error"}`,
-        metadata: JSON.stringify({ issueId: existing.id }),
+        metadata: JSON.stringify({ issueId: existing.id, title: existing.title, event: "dispatch_failed" as const }),
       });
       return writeError(taskErr instanceof Error ? taskErr.message : "failed to dispatch issue", 500);
     }
@@ -150,7 +150,7 @@ export const PATCH = withAuth(async (req: NextRequest, ctx) => {
       conversationId: existing.conversationId,
       role: "event",
       content: `Issue status changed: ${existing.status} -> ${body.status}`,
-      metadata: JSON.stringify({ issueId: existing.id }),
+      metadata: JSON.stringify({ issueId: existing.id, title: existing.title, event: "status_changed" as const, fromStatus: existing.status, toStatus: body.status }),
     });
     broadcastToUser(ctx.userId, {
       type: "conversation.message",

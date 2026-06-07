@@ -9,6 +9,7 @@ import { agentToResponse } from "@/lib/api/responses";
 import { TaskService } from "@/lib/services/task";
 import { invalidate, cached, cacheKeys } from "@/lib/cache";
 import { filterVisibleAgents } from "@/lib/agent-visibility";
+import { ensureAgentEmailRoute } from "@/lib/cloudflare-email-routing";
 
 export const GET = withAuth(async (req, ctx) => {
   const ws = await withWorkspaceMember(req, ctx);
@@ -83,6 +84,14 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
 
   if (emailHandle && ctx.email) {
     await queries.whitelist.addWhitelist(db, newAgent.id, ws.workspaceId, ctx.email.toLowerCase());
+  }
+
+  if (newAgent.emailHandle) {
+    try {
+      await ensureAgentEmailRoute(env as Env, newAgent.emailHandle);
+    } catch {
+      // Best-effort: agent creation should not fail if Cloudflare routing is temporarily unavailable.
+    }
   }
 
   await Promise.all([

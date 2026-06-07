@@ -1,9 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "katex/dist/katex.min.css";
 @source "../node_modules/streamdown/dist/*.js";
 @source "../node_modules/@streamdown/mermaid/dist/*.js";
 @source "../node_modules/@streamdown/cjk/dist/*.js";
+@source "../node_modules/@streamdown/math/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -88,6 +90,13 @@
   --radius: 0.625rem;
   --status-online: oklch(0.72 0.19 145);
   --status-offline: oklch(0.65 0.2 25);
+  --te: oklch(0.55 0.1 250);
+  --ti: oklch(0.52 0.12 150);
+  --tc: oklch(0.57 0.15 28);
+  --tf: oklch(0.5 0.05 255);
+  --paper: oklch(0.97 0.005 80);
+  --e1: 0 1px 2px oklch(0.3 0.02 60 / 6%);
+  --e2: 0 10px 20px -6px oklch(0.3 0.02 60 / 18%);
   --sidebar: oklch(0.98 0.005 80);
   --sidebar-foreground: oklch(0.18 0.01 60);
   --sidebar-primary: oklch(0.25 0.012 60);
@@ -127,6 +136,13 @@
   --chart-5: oklch(0.27 0.01 60);
   --status-online: oklch(0.75 0.18 145);
   --status-offline: oklch(0.7 0.18 25);
+  --te: oklch(0.72 0.08 250);
+  --ti: oklch(0.75 0.12 150);
+  --tc: oklch(0.72 0.14 28);
+  --tf: oklch(0.72 0.05 255);
+  --paper: oklch(0.24 0.008 60);
+  --e1: 0 1px 3px oklch(0 0 0 / 15%);
+  --e2: 0 12px 24px -8px oklch(0 0 0 / 50%);
   --sidebar: oklch(0.21 0.008 60);
   --sidebar-foreground: oklch(0.93 0.006 80);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -135,6 +151,23 @@
   --sidebar-accent-foreground: oklch(0.93 0.006 80);
   --sidebar-border: oklch(1 0.005 80 / 10%);
   --sidebar-ring: oklch(0.55 0.01 60);
+}
+
+/* ── Object-mimicry card grain texture (shared) ── */
+.card-grain {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-grain { transition: none !important; }
+}
+.card-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  mix-blend-mode: overlay;
 }
 
 /* ── Homepage "1980s CRT Nostalgia" scoped tokens ── */
@@ -1420,20 +1453,77 @@ html.dark .blog-content [data-rehype-pretty-code-figure] span {
   pointer-events: auto !important;
 }
 
-/* ── Streamdown code block actions: show on hover ── */
-[data-streamdown="code-block-actions"] {
+/* ── Streamdown block actions: unified styling (matches MessageActionsToolbar) ── */
+[data-streamdown="code-block-actions"],
+[data-streamdown="mermaid-block-actions"],
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) {
   opacity: 0;
   pointer-events: none;
   transition: opacity 150ms ease;
-  background: oklch(0.25 0.01 60) !important;
-  border-color: oklch(1 0.005 80 / 12%) !important;
-  color: #e1e4e8 !important;
+  background: oklch(0.2 0.01 60 / 80%) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid oklch(1 0 0 / 10%) !important;
+  border-radius: 0.5rem !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  padding: 0.125rem !important;
+  gap: 0.125rem !important;
 }
-[data-streamdown="code-block-actions"] button:hover {
+[data-streamdown="code-block-actions"] button,
+[data-streamdown="mermaid-block-actions"] button,
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) button {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.375rem !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  transition: color 150ms ease !important;
+}
+[data-streamdown="code-block-actions"] button:hover,
+[data-streamdown="mermaid-block-actions"] button:hover,
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) button:hover {
   color: #ffffff !important;
 }
-.dark [data-streamdown="code-block-actions"] {
-  background: oklch(0.22 0.008 60) !important;
+[data-streamdown="code-block-actions"] button svg,
+[data-streamdown="mermaid-block-actions"] button svg,
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) button svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+}
+
+/* ── Streamdown block actions: dropdown popups ── */
+[data-streamdown="code-block-actions"] .absolute,
+[data-streamdown="mermaid-block-actions"] .absolute,
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) .absolute {
+  z-index: 50 !important;
+  min-width: 8rem;
+  width: max-content !important;
+  overflow: visible !important;
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+  padding: 0.25rem !important;
+}
+[data-streamdown="code-block-actions"] .absolute button,
+[data-streamdown="mermaid-block-actions"] .absolute button,
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) .absolute button {
+  width: 100% !important;
+  height: auto !important;
+  display: flex !important;
+  padding: 0.375rem 0.625rem !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--foreground) !important;
+  cursor: pointer !important;
+}
+[data-streamdown="code-block-actions"] .absolute button:hover,
+[data-streamdown="mermaid-block-actions"] .absolute button:hover,
+[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) .absolute button:hover {
+  background: oklch(1 0 0 / 8%) !important;
+  color: var(--foreground) !important;
 }
 [data-streamdown="code-block"]:hover [data-streamdown="code-block-actions"] {
   opacity: 1;
@@ -1489,23 +1579,13 @@ html.dark .blog-content [data-rehype-pretty-code-figure] span {
   pointer-events: auto;
 }
 
-/* Actions buttons: fade in on hover */
-[data-streamdown="mermaid-block-actions"] {
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
+/* Mermaid actions: hover reveal */
 [data-streamdown="mermaid-block"]:hover [data-streamdown="mermaid-block-actions"] {
   opacity: 1;
+  pointer-events: auto;
 }
 
-/* Mermaid download dropdown menu */
-[data-streamdown="mermaid-block-actions"] .absolute {
-  z-index: 50 !important;
-  min-width: 10rem;
-  color: var(--foreground) !important;
-  background: var(--background) !important;
-  border-color: var(--border) !important;
-}
+/* Mermaid download dropdown menu — covered by unified dropdown rule above */
 
 /* Diagram content area */
 [data-streamdown="mermaid-block"] > div:last-child {
@@ -1581,27 +1661,20 @@ html.dark .blog-content [data-rehype-pretty-code-figure] span {
   border-bottom: 1px solid var(--border) !important;
 }
 
-/* Actions row: anchor top-right, show on hover (outside @layer so it always applies) */
+/* Table actions: position + hover reveal */
 [data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) {
   position: absolute !important;
   top: 0.375rem;
   right: 0.375rem;
   z-index: 10;
   margin: 0 !important;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 150ms ease;
 }
 [data-streamdown="table-wrapper"]:hover > div:first-child:not(:has([data-streamdown="table"])) {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* Table copy/download dropdown: escape parent overflow clip */
-[data-streamdown="table-wrapper"] > div:first-child:not(:has([data-streamdown="table"])) .absolute {
-  min-width: 10rem;
-  overflow: visible !important;
-}
+/* Table copy/download dropdown — covered by unified dropdown rule above */
 
 /* Thin scrollbar for table container */
 [data-streamdown="table-wrapper"] > div:has([data-streamdown="table"])::-webkit-scrollbar {
@@ -1618,18 +1691,57 @@ html.dark .blog-content [data-rehype-pretty-code-figure] span {
   background: var(--muted-foreground);
 }
 
-/* ── Streamdown table fullscreen: enable horizontal scroll for wide tables ── */
+/* ── Streamdown fullscreen views: unified styling ── */
+/* Mermaid fullscreen (portaled to body): unified background */
+.fixed.inset-0.z-50.bg-background\/95.backdrop-blur-sm {
+  background: oklch(0.1 0.01 60 / 95%) !important;
+  backdrop-filter: blur(8px) !important;
+}
+/* Mermaid fullscreen: apply same node styling as in-bubble */
+.fixed.inset-0.z-50.bg-background\/95 .node rect,
+.fixed.inset-0.z-50.bg-background\/95 .node .basic {
+  rx: 8 !important;
+  ry: 8 !important;
+}
+/* Table fullscreen */
 [data-streamdown="table-fullscreen"] {
+  background: oklch(0.1 0.01 60 / 95%) !important;
+  backdrop-filter: blur(8px);
   overflow: hidden;
 }
+/* Content area: centered with max-width for readability */
 [data-streamdown="table-fullscreen"] .flex-1.overflow-auto {
   overflow: auto !important;
   display: flex !important;
   align-items: center;
+  justify-content: center !important;
+  padding: 1rem !important;
+}
+[data-streamdown="table-fullscreen"] .flex-1.overflow-auto > * {
+  max-width: 64rem !important;
+  width: 100% !important;
 }
 [data-streamdown="table-fullscreen"] [data-streamdown="table"] {
   width: max-content !important;
   min-width: 100%;
+}
+/* Table fullscreen close button: match mermaid's absolute top-right style */
+[data-streamdown="table-fullscreen"] > div > div:first-child {
+  position: absolute !important;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  padding: 1rem !important;
+}
+[data-streamdown="table-fullscreen"] > div > div:first-child button {
+  padding: 0.5rem !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--muted-foreground) !important;
+  transition: all 150ms ease !important;
+}
+[data-streamdown="table-fullscreen"] > div > div:first-child button:hover {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
 }
 
 /* ── Task highlight (activity page scroll-to-task) ── */
@@ -1779,7 +1891,7 @@ html, body {
   position: absolute;
   inset: 0;
   bottom: -100vh;
-  background: var(--background);
+  background: linear-gradient(to bottom, transparent, var(--background) 15%);
   z-index: -1;
 }
 
@@ -1792,3 +1904,5 @@ html.dark,
 .dark body {
   background-color: oklch(0.16 0.008 60);
 }
+
+

@@ -75,7 +75,7 @@ export function syncCommand(): Command {
           process.exit(1);
         }
       } else {
-        content = opts.message ?? "";
+        content = (opts.message ?? "").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
       }
       if (!content.trim()) {
         console.error("Error: --message or --message-file is required (and must not be empty)");

@@ -182,7 +182,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     role: "event",
     content: `Issue created: ${created.title}`,
     attachmentIds: artifactIds.length > 0 ? JSON.stringify(artifactIds) : null,
-    metadata: JSON.stringify({ issueId: created.id }),
+    metadata: JSON.stringify({ issueId: created.id, title: created.title, event: "created" as const, agentId: body.agent_id }),
   });
 
   const prompt = buildIssuePrompt({
@@ -226,7 +226,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
       conversationId: conversation.id,
       role: "event",
       content: `Issue dispatch failed: ${taskErr instanceof Error ? taskErr.message : "unknown error"}`,
-      metadata: JSON.stringify({ issueId: created.id }),
+      metadata: JSON.stringify({ issueId: created.id, title: created.title, event: "dispatch_failed" as const }),
     });
     return writeError(taskErr instanceof Error ? taskErr.message : "failed to dispatch issue", 500);
   }

@@ -51,6 +51,11 @@ vi.mock("@alook/shared", () => ({
     runtime: {
       getAgentRuntime: vi.fn(),
     },
+    inbox: {
+      isUnreadEligible: vi.fn().mockReturnValue(false),
+      upsertUnreadEntry: vi.fn().mockResolvedValue(undefined),
+      findLatestAssistantMessageId: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 

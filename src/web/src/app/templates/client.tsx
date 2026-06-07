@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { PublicLayout } from "@/components/public-layout";
 import { TemplateCard } from "./_components/template-card";
 import type { TemplatePreset, TemplateCategory } from "@/lib/templates";
+import { trackTemplatesBrowsed } from "@/lib/analytics";
 
 export function TemplatesClient({
   templates,
@@ -20,6 +19,19 @@ export function TemplatesClient({
   workspaceId?: string;
 }) {
   const [activeCategory, setActiveCategory] = useState<"All" | TemplateCategory>("All");
+  const tracked = useRef(false);
+
+  useEffect(() => {
+    if (!tracked.current) {
+      tracked.current = true;
+      trackTemplatesBrowsed({ category_filter: "All" });
+    }
+  }, []);
+
+  const handleCategoryChange = (cat: "All" | TemplateCategory) => {
+    setActiveCategory(cat);
+    trackTemplatesBrowsed({ category_filter: cat });
+  };
 
   const filtered =
     activeCategory === "All"
@@ -27,29 +39,40 @@ export function TemplatesClient({
       : templates.filter((t) => t.category === activeCategory);
 
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/alook.svg" alt="Alook" width={22} height={22} />
-            <span className="text-lg tracking-tight" style={{ fontFamily: "var(--font-brand)", fontWeight: 700 }}>Alook</span>
+    <PublicLayout
+      maxWidth="4xl"
+      rightSlot={
+        <>
+          <Link
+            href="/templates"
+            className="hidden sm:block px-3 py-1.5 text-xs uppercase tracking-widest font-mono transition-opacity hover:opacity-70"
+          >
+            Templates
           </Link>
-          <div className="flex items-center gap-2">
-            {isLoggedIn ? (
-              <Link href="/workspaces?auto" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                <ArrowLeft className="mr-1.5 size-3" />
-                Back to App
-              </Link>
-            ) : (
-              <Link href="/sign-in" className={buttonVariants({ size: "sm" })}>
-                Sign In
-              </Link>
-            )}
-          </div>
-        </div>
-      </nav>
-
+          <Link
+            href="/blog"
+            className="hidden sm:block px-3 py-1.5 text-xs uppercase tracking-widest font-mono transition-opacity hover:opacity-70"
+          >
+            Blog
+          </Link>
+          {isLoggedIn ? (
+            <Link
+              href="/workspaces?auto"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs uppercase tracking-widest font-mono border border-current transition-opacity hover:opacity-70"
+            >
+              App
+            </Link>
+          ) : (
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs uppercase tracking-widest font-mono bg-foreground text-background transition-opacity hover:opacity-70"
+            >
+              Get Started
+            </Link>
+          )}
+        </>
+      }
+    >
       {/* Header */}
       <div className="mx-auto max-w-4xl px-6 pt-16 pb-2">
         <h1
@@ -69,7 +92,7 @@ export function TemplatesClient({
           {["All", ...categories].map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat as "All" | TemplateCategory)}
+              onClick={() => handleCategoryChange(cat as "All" | TemplateCategory)}
               className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors duration-150 ${
                 activeCategory === cat
                   ? "bg-foreground text-background"
@@ -102,6 +125,6 @@ export function TemplatesClient({
           </div>
         )}
       </div>
-    </div>
+    </PublicLayout>
   );
 }

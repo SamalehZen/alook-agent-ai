@@ -299,6 +299,36 @@ describe("buildPrompt", () => {
     expect(parsed.email_id).toBeUndefined();
   });
 
+  it("includes message_id in DM prompt when context has it", () => {
+    const task: Task = {
+      ...makeTask("Fix the bug"),
+      context: { message_id: "msg_abc123" },
+    };
+    const parsed = JSON.parse(buildPrompt(task));
+    expect(parsed.message_id).toBe("msg_abc123");
+  });
+
+  it("omits message_id for DM tasks without context", () => {
+    const task = makeTask("Hello");
+    const parsed = JSON.parse(buildPrompt(task));
+    expect(parsed.message_id).toBeUndefined();
+  });
+
+  it("includes quoted_message in DM prompt when context has it", () => {
+    const task: Task = {
+      ...makeTask("Can you fix this?"),
+      context: { quoted_message: { message_id: "msg_orig", excerpt: "The auth module has a bug" } },
+    };
+    const parsed = JSON.parse(buildPrompt(task));
+    expect(parsed.quoted_message).toEqual({ message_id: "msg_orig", excerpt: "The auth module has a bug" });
+  });
+
+  it("omits quoted_message for DM tasks without quote context", () => {
+    const task = makeTask("Hello");
+    const parsed = JSON.parse(buildPrompt(task));
+    expect(parsed.quoted_message).toBeUndefined();
+  });
+
   it("does not add notice for unknown task types", () => {
     const task = makeTask("Check inbox", "some_other_type");
     const parsed = JSON.parse(buildPrompt(task));

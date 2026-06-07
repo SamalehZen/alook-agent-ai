@@ -3,25 +3,21 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Social presence line above the composer. Two states only:
- *   this conversation has a live task (dispatched / queued / running)
- *     → "{Name} is typing…" + dots
- *   otherwise → nothing
+ * Social presence line above the composer. Three states:
+ *   queued / dispatched → "{Name} is reading" + dots  (preparing / querying)
+ *   running             → "{Name} is typing"  + dots  (actively generating)
+ *   otherwise           → nothing (idle)
  *
- * No "on something" / busy-elsewhere copy (dropped per Gus). Crossfades on
- * change and gates the typing-dot animation behind prefers-reduced-motion.
+ * The reading→typing distinction lets the user tell whether the agent is stuck
+ * in query (e.g. runtime offline) vs actively working. Crossfades between
+ * states and gates the dot animation behind prefers-reduced-motion.
  */
 
-type Presence = "typing" | "idle";
+type Presence = "reading" | "typing" | "idle";
 
 function derivePresence(taskStatus: string | null | undefined): Presence {
-  if (
-    taskStatus === "running" ||
-    taskStatus === "queued" ||
-    taskStatus === "dispatched"
-  ) {
-    return "typing";
-  }
+  if (taskStatus === "running") return "typing";
+  if (taskStatus === "queued" || taskStatus === "dispatched") return "reading";
   return "idle";
 }
 
@@ -35,6 +31,11 @@ function TypingDots() {
   );
 }
 
+function presenceLabel(presence: Presence, name: string): string {
+  if (presence === "reading") return `${name} is reading`;
+  return `${name} is typing`;
+}
+
 export function PresenceLine({
   agentFirstName,
   taskStatus,
@@ -44,8 +45,6 @@ export function PresenceLine({
 }) {
   const presence = derivePresence(taskStatus);
 
-  // Reserve a fixed-height row so the composer never shifts as presence changes.
-  // mb gives the line breathing room above the composer (it sat too close).
   return (
     <div className="h-5 px-1 mb-2 flex items-center" aria-live="polite">
       <span
@@ -55,9 +54,9 @@ export function PresenceLine({
           presence !== "idle" && "motion-safe:animate-[fade-up_200ms_ease-out_both]",
         )}
       >
-        {presence === "typing" && (
+        {presence !== "idle" && (
           <>
-            <span>{agentFirstName} is typing</span>
+            <span>{presenceLabel(presence, agentFirstName)}</span>
             <TypingDots />
           </>
         )}

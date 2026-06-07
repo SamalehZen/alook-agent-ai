@@ -8,7 +8,9 @@ import { Loader2, CheckCircle2, XCircle, LogOut, ArrowLeft, LayoutGrid } from "l
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth-client";
 import { clearAllCache } from "@/lib/chat-cache";
+import { trackWorkspaceCreated, trackOnboardingCompleted, trackAgentCreated } from "@/lib/analytics";
 
+import { PublicLayout } from "@/components/public-layout";
 import { ConnectMachineSteps } from "@/components/connect-machine-steps";
 import { ScenarioPicker } from "@/components/studio-onboarding/scenario-picker";
 import { TeamPreview, type TeamMember } from "@/components/studio-onboarding/team-preview";
@@ -20,7 +22,8 @@ import {
 
 import type { AgentRuntime as Runtime } from "@alook/shared";
 import type { WsMessage } from "@alook/shared";
-import { listRuntimes, createMachineToken, createWorkspace } from "@/lib/api";
+import { isTauri, isDesktop } from "@alook/shared";
+import { listRuntimes, createMachineToken, getMachineTokenStatus } from "@/lib/api";
 import { useUserWs } from "@/lib/use-user-ws";
 import type { TemplatePreset } from "@/lib/templates";
 
@@ -42,6 +45,8 @@ export function StudioOnboardingClient({
   const workspaceIdRef = useRef(workspaceId);
   useEffect(() => { workspaceIdRef.current = workspaceId; }, [workspaceId]);
   const [runtimes, setRuntimes] = useState<Runtime[]>([]);
+  const runtimesRef = useRef(runtimes);
+  useEffect(() => { runtimesRef.current = runtimes; }, [runtimes]);
   const [loadingRuntimes, setLoadingRuntimes] = useState(!!initialWorkspaceId);
   const [scenarioId, setScenarioId] = useState<ScenarioId | null>(
     initialTemplate ? initialTemplate.baseScenario : null,
@@ -50,6 +55,7 @@ export function StudioOnboardingClient({
     isNewWorkspace ? "" : (workspaceName === "Personal" ? "" : workspaceName),
   );
   const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
+  const [nameLocked, setNameLocked] = useState(false);
   const [checkingName, setCheckingName] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [creating, setCreating] = useState(false);
@@ -59,8 +65,8 @@ export function StudioOnboardingClient({
   const [generatingToken, setGeneratingToken] = useState(false);
   const [machineRegistered, setMachineRegistered] = useState(false);
   const [daemonOnline, setDaemonOnline] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
 
+  const isTauriDesktop = isTauri() && isDesktop();
   const onlineRuntimes = runtimes.filter((r) => r.status === "online");
   const hasOnlineRuntime = onlineRuntimes.length > 0;
   const onlineMachineCount = new Set(onlineRuntimes.map((r) => r.daemon_id).filter(Boolean)).size;
@@ -74,10 +80,62 @@ export function StudioOnboardingClient({
       .finally(() => setLoadingRuntimes(false));
   }, [workspaceId]);
 
+  // Recover token state on mount (handles page refresh after register)
+  useEffect(() => {
+    getMachineTokenStatus()
+      .then((data) => {
+        if (data.status === "registered" || data.status === "active") {
+          // If this is a new workspace and the token is already bound elsewhere, ignore its runtimes
+          if (isNewWorkspace && data.workspace_id) return;
+          setMachineRegistered(true);
+          if (data.daemon_online) setDaemonOnline(true);
+          if (data.runtimes?.length) {
+            setRuntimes(data.runtimes.map((rt) => ({
+              id: rt.id,
+              workspace_id: "",
+              daemon_id: data.hostname || null,
+              runtime_mode: "local",
+              provider: rt.type,
+              status: rt.status,
+              device_info: data.hostname || "",
+              metadata: { version: rt.version },
+              last_seen_at: null,
+              created_at: "",
+              updated_at: "",
+            })));
+          }
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // WebSocket for runtime registration events
   const handleWsMessage = useCallback((msg: WsMessage) => {
     const currentWsId = workspaceIdRef.current;
-    if (msg.type === "runtime.registered") {
+    if (msg.type === "machine.registered") {
+      setMachineRegistered(true);
+      if (runtimesRef.current.length === 0) {
+        getMachineTokenStatus().then(data => {
+          if (data.runtimes?.length) {
+            setRuntimes(data.runtimes.map(rt => ({
+              id: rt.id,
+              workspace_id: "",
+              daemon_id: data.hostname || null,
+              runtime_mode: "local",
+              provider: rt.type,
+              status: "online" as const,
+              device_info: data.hostname || "",
+              metadata: { version: rt.version },
+              last_seen_at: null,
+              created_at: "",
+              updated_at: "",
+            })));
+          }
+          if (data.daemon_online) setDaemonOnline(true);
+        }).catch(() => {});
+      }
+    } else if (msg.type === "runtime.registered") {
       setMachineRegistered(true);
       const eventWsId = msg.workspaceId;
       if (eventWsId && !currentWsId) {
@@ -88,10 +146,34 @@ export function StudioOnboardingClient({
       }
     } else if (msg.type === "runtime.status" && msg.status === "online") {
       setDaemonOnline(true);
+      if (runtimesRef.current.length === 0) {
+        getMachineTokenStatus().then(data => {
+          if (data.runtimes?.length) {
+            setRuntimes(data.runtimes.map(rt => ({
+              id: rt.id,
+              workspace_id: "",
+              daemon_id: data.hostname || null,
+              runtime_mode: "local",
+              provider: rt.type,
+              status: "online" as const,
+              device_info: data.hostname || "",
+              metadata: { version: rt.version },
+              last_seen_at: null,
+              created_at: "",
+              updated_at: "",
+            })));
+          }
+        }).catch(() => {});
+      } else {
+        setRuntimes(prev => prev.map(r => ({ ...r, status: "online" })));
+      }
       const wsId = workspaceIdRef.current;
       if (wsId) {
         listRuntimes(wsId).then(setRuntimes).catch(() => {});
       }
+    } else if (msg.type === "runtime.status" && msg.status === "offline") {
+      setDaemonOnline(false);
+      setRuntimes(prev => prev.map(r => ({ ...r, status: "offline" })));
     }
   }, []);
 
@@ -198,8 +280,15 @@ export function StudioOnboardingClient({
         ? `/api/studios/check-name?name=${encodeURIComponent(studioName.trim())}&workspace_id=${workspaceId}`
         : `/api/studios/check-name?name=${encodeURIComponent(studioName.trim())}`;
       const res = await fetch(url);
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(err.error || "Invalid company name");
+        setNameAvailable(false);
+        return;
+      }
       const data = (await res.json()) as { available: boolean };
       setNameAvailable(data.available);
+      if (data.available) setNameLocked(true);
     } catch {
       setNameAvailable(null);
       toast.error("Failed to check name availability");
@@ -208,23 +297,22 @@ export function StudioOnboardingClient({
     }
   };
 
+  const handleUnlockName = () => {
+    setNameLocked(false);
+    setNameAvailable(null);
+  };
+
   const handleGenerateToken = useCallback(async () => {
     setGeneratingToken(true);
     try {
-      let wsId = workspaceIdRef.current;
-      if (!wsId && isNewWorkspace) {
-        const ws = await createWorkspace("Personal");
-        wsId = ws.id;
-        setWorkspaceId(wsId);
-      }
-      const res = await createMachineToken("cli", wsId || undefined);
+      const res = await createMachineToken("cli", workspaceIdRef.current || undefined);
       setGeneratedToken(res.token);
     } catch {
       toast.error("Failed to generate token");
     } finally {
       setGeneratingToken(false);
     }
-  }, [isNewWorkspace]);
+  }, []);
 
   const handleAssignRuntime = (memberIndex: number, runtimeId: string) => {
     setMembers((prev) =>
@@ -235,21 +323,88 @@ export function StudioOnboardingClient({
   const handleCreate = async () => {
     setCreating(true);
     try {
-      if (!workspaceId) {
+      let resolvedWorkspaceId = workspaceId;
+
+      if (!resolvedWorkspaceId) {
+        // Create workspace + bind machine token
+        const wsRes = await fetch("/api/workspaces", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: studioName.trim() || "Personal",
+            slug: (studioName.trim() || "personal").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+          }),
+        });
+        if (!wsRes.ok) {
+          const err = (await wsRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(err.error || "Failed to create workspace");
+        }
+        const wsData = (await wsRes.json()) as { id: string; slug: string };
+        resolvedWorkspaceId = wsData.id;
+        setWorkspaceId(resolvedWorkspaceId);
+
+        // Bind workspace to machine token
+        const bindRes = await fetch("/api/machine-tokens/bind-workspace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspace_id: resolvedWorkspaceId }),
+        });
+        if (!bindRes.ok) {
+          // Cleanup orphaned workspace
+          await fetch(`/api/workspaces/${resolvedWorkspaceId}`, { method: "DELETE" }).catch(() => {});
+          setWorkspaceId(null);
+          const err = (await bindRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(err.error || "Failed to bind workspace");
+        }
+      }
+
+      if (!resolvedWorkspaceId) {
         toast.error("Please connect a computer first");
         setCreating(false);
         return;
       }
+
+      // Wait for real runtimes and resolve temp IDs to actual runtime IDs.
+      // After bind-workspace, the daemon registers runtimes — poll until available.
+      let resolvedMembers = members;
+      const needsRuntimeResolution = members.some((m) => !m.runtimeId || m.runtimeId.startsWith("temp_"));
+      if (needsRuntimeResolution) {
+        let attempts = 0;
+        let freshRuntimes: Runtime[] = [];
+        while (attempts < 10) {
+          freshRuntimes = await listRuntimes(resolvedWorkspaceId);
+          if (freshRuntimes.some((r) => r.status === "online")) break;
+          await new Promise((r) => setTimeout(r, 1000));
+          attempts++;
+        }
+        const onlineFresh = freshRuntimes.filter((r) => r.status === "online");
+        if (onlineFresh.length > 0) {
+          resolvedMembers = members.map((m) => {
+            if (!m.runtimeId || m.runtimeId.startsWith("temp_")) {
+              const tempProvider = runtimes.find((r) => r.id === m.runtimeId)?.provider;
+              const match = onlineFresh.find((r) => r.provider === tempProvider) || onlineFresh[0];
+              return { ...m, runtimeId: match.id };
+            }
+            return m;
+          });
+        }
+        if (resolvedMembers.some((m) => !m.runtimeId || m.runtimeId.startsWith("temp_"))) {
+          toast.error("Waiting for runtime — please ensure the daemon is running");
+          setCreating(false);
+          return;
+        }
+      }
+
       const res = await fetch("/api/studios", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Workspace-ID": workspaceId,
+          "X-Workspace-ID": resolvedWorkspaceId,
         },
         body: JSON.stringify({
           name: studioName.trim() || undefined,
           scenario: scenarioId,
-          members: members.map((m) => ({
+          members: resolvedMembers.map((m) => ({
             name: m.name,
             role: m.role,
             runtime_id: m.runtimeId,
@@ -268,6 +423,19 @@ export function StudioOnboardingClient({
       }
 
       const data = (await res.json()) as { workspace: { slug: string }; leader_agent_id: string };
+      if (!initialWorkspaceId) {
+        trackWorkspaceCreated("onboarding");
+      }
+      trackOnboardingCompleted({
+        template_used: scenarioId ?? undefined,
+        agent_count: resolvedMembers.length,
+      });
+      for (let i = 0; i < resolvedMembers.length; i++) {
+        trackAgentCreated({
+          is_first_agent: i === 0,
+          has_email: !!resolvedMembers[i].emailHandle,
+        });
+      }
       toast.success("Company created!");
       router.push(`/w/${data.workspace.slug}/agents/${data.leader_agent_id}`);
     } catch (e) {
@@ -284,34 +452,39 @@ export function StudioOnboardingClient({
   const canCreate =
     scenarioId &&
     members.length > 0 &&
-    members.every((m) => m.runtimeId) &&
+    (isTauriDesktop || isNewWorkspace || members.every((m) => m.runtimeId)) &&
     nameValid &&
-    (hasOnlineRuntime || machineRegistered);
+    (hasOnlineRuntime || (machineRegistered && daemonOnline && runtimes.length > 0) || isTauriDesktop);
 
   // Page 1: Scenario selection
   if (!scenarioId) {
     return (
-      <div className="relative flex min-h-dvh flex-col items-center justify-center px-6 pt-14 pb-6 sm:p-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute top-4 left-4 text-xs text-muted-foreground"
-          onClick={() => router.push("/workspaces")}
-        >
-          <LayoutGrid className="size-3 mr-1.5" />
-          Workspaces
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute top-4 right-4 text-xs text-muted-foreground"
-          onClick={async () => { await clearAllCache(); signOut({ fetchOptions: { onSuccess: () => router.push("/sign-in") } }); }}
-        >
-          <LogOut className="size-3 mr-1.5" />
-          Sign out
-        </Button>
-
-        <div className="w-full max-w-3xl space-y-8">
+      <PublicLayout
+        leftSlot={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => router.push("/workspaces")}
+          >
+            <LayoutGrid className="size-3 mr-1.5" />
+            Workspaces
+          </Button>
+        }
+        rightSlot={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={async () => { await clearAllCache(); signOut({ fetchOptions: { onSuccess: () => router.push("/sign-in") } }); }}
+          >
+            <LogOut className="size-3 mr-1.5" />
+            Sign out
+          </Button>
+        }
+        mainClassName="flex items-center justify-center"
+      >
+        <div className="w-full max-w-3xl space-y-8 px-6 py-6">
           <div className="text-center space-y-2">
             <h1
               className="text-2xl font-semibold tracking-tight"
@@ -341,45 +514,49 @@ export function StudioOnboardingClient({
             </div>
           )}
         </div>
-      </div>
+      </PublicLayout>
     );
   }
 
   // Page 2: Build your company
   return (
-    <div className="relative flex min-h-dvh flex-col items-center p-6">
-      <div className="absolute top-4 left-4 flex items-center gap-1">
+    <PublicLayout
+      leftSlot={
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => router.push("/workspaces")}
+          >
+            <LayoutGrid className="size-3 mr-1.5" />
+            Workspaces
+          </Button>
+          <span className="text-muted-foreground/40">/</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => setScenarioId(null)}
+          >
+            <ArrowLeft className="size-3 mr-1.5" />
+            Back
+          </Button>
+        </>
+      }
+      rightSlot={
         <Button
           variant="ghost"
           size="sm"
           className="text-xs text-muted-foreground"
-          onClick={() => router.push("/workspaces")}
+          onClick={async () => { await clearAllCache(); signOut({ fetchOptions: { onSuccess: () => router.push("/sign-in") } }); }}
         >
-          <LayoutGrid className="size-3 mr-1.5" />
-          Workspaces
+          <LogOut className="size-3 mr-1.5" />
+          Sign out
         </Button>
-        <span className="text-muted-foreground/40">/</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground"
-          onClick={() => setScenarioId(null)}
-        >
-          <ArrowLeft className="size-3 mr-1.5" />
-          Back
-        </Button>
-      </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="absolute top-4 right-4 text-xs text-muted-foreground"
-        onClick={async () => { await clearAllCache(); signOut({ fetchOptions: { onSuccess: () => router.push("/sign-in") } }); }}
-      >
-        <LogOut className="size-3 mr-1.5" />
-        Sign out
-      </Button>
-
-      <div className="w-full max-w-3xl space-y-10 py-14">
+      }
+    >
+      <div className="mx-auto w-full max-w-3xl space-y-10 px-6 py-14">
         {/* Header */}
         <div className="text-center">
           <h1
@@ -409,35 +586,51 @@ export function StudioOnboardingClient({
                   }}
                   placeholder="e.g. Atlas Lab"
                   className="text-sm"
+                  disabled={nameLocked}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCheckName}
-                  disabled={!studioName.trim() || checkingName}
-                  className="shrink-0"
-                >
-                  {checkingName ? <Loader2 className="size-3 animate-spin" /> : "Check"}
-                </Button>
+                {nameLocked ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUnlockName}
+                    className="shrink-0"
+                  >
+                    Edit
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckName}
+                    disabled={!studioName.trim() || checkingName}
+                    className="shrink-0"
+                  >
+                    {checkingName ? <Loader2 className="size-3 animate-spin" /> : "Check"}
+                  </Button>
+                )}
               </div>
-              {nameAvailable === false && (
-                <p className="text-xs text-red-500 flex items-center gap-1">
-                  <XCircle className="size-3" /> Name is taken, try another
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                {nameAvailable === true && (
-                  <span className="text-emerald-600 flex items-center gap-0.5">
-                    <CheckCircle2 className="size-3" /> Available
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  {nameAvailable === true && (
+                    <>
+                      <span className="text-emerald-600 flex items-center gap-0.5">
+                        <CheckCircle2 className="size-3" /> Available
+                      </span>
+                      <span>·</span>
+                    </>
+                  )}
+                  {!isNewWorkspace ? (
+                    <span>Optional — you can always rename later.</span>
+                  ) : (
+                    <span>Required — pick a name for your company.</span>
+                  )}
+                </span>
+                {nameAvailable === false && (
+                  <span className="text-red-500 flex items-center gap-1 ml-auto">
+                    <XCircle className="size-3" /> Name is taken, try another
                   </span>
                 )}
-                {nameAvailable === true && <span>·</span>}
-                {!isNewWorkspace ? (
-                  <span>Optional — you can always rename later.</span>
-                ) : (
-                  <span>Required — pick a name for your company.</span>
-                )}
-              </p>
+              </div>
             </div>
 
             {/* Team Preview */}
@@ -448,24 +641,19 @@ export function StudioOnboardingClient({
               onAssignRuntime={handleAssignRuntime}
             />
 
-            {/* Connect Machine */}
-            <div className="space-y-3">
-              <h2 className="text-base font-semibold tracking-tight">Connect a computer</h2>
-              {hasOnlineRuntime ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 className="size-3" /> {onlineMachineCount} computer{onlineMachineCount > 1 ? "s" : ""} connected
+            {/* Connect Machine — hidden in Tauri desktop (the app IS the computer) */}
+            {!isTauriDesktop && (
+              <div className="space-y-3">
+                <h2 className="text-base font-semibold tracking-tight">Connect a computer</h2>
+                {(hasOnlineRuntime || (machineRegistered && daemonOnline && runtimes.length > 0)) ? (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    <CheckCircle2 className="size-3" /> {onlineMachineCount || 1} computer{(onlineMachineCount || 1) > 1 ? "s" : ""} connected
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Your company needs a connected computer to run tasks.
                     </p>
-                    <button
-                      type="button"
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setShowRegister((v) => !v)}
-                    >
-                      Register another
-                    </button>
-                  </div>
-                  {showRegister && (
                     <div className="rounded-xl bg-muted/40 p-5">
                       <ConnectMachineSteps
                         generatedToken={generatedToken}
@@ -475,25 +663,10 @@ export function StudioOnboardingClient({
                         daemonOnline={daemonOnline}
                       />
                     </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <p className="text-xs text-muted-foreground">
-                    Your company needs a connected computer to run tasks.
-                  </p>
-                  <div className="rounded-xl bg-muted/40 p-5">
-                    <ConnectMachineSteps
-                      generatedToken={generatedToken}
-                      generatingToken={generatingToken}
-                      onGenerateToken={handleGenerateToken}
-                      registered={machineRegistered}
-                      daemonOnline={daemonOnline}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Create */}
             <Button
@@ -507,7 +680,9 @@ export function StudioOnboardingClient({
                   <Loader2 className="size-4 animate-spin mr-2" />
                   Launching...
                 </>
-              ) : isNewWorkspace && studioName.trim() && nameAvailable !== true ? (
+              ) : isNewWorkspace && nameAvailable === false ? (
+                "Name unavailable"
+              ) : isNewWorkspace && nameAvailable !== true ? (
                 "Check company name first"
               ) : (
                 "Launch company"
@@ -516,6 +691,6 @@ export function StudioOnboardingClient({
           </>
         )}
       </div>
-    </div>
+    </PublicLayout>
   );
 }

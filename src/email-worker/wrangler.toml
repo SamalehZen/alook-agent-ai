@@ -22,9 +22,12 @@ destinations = ["grafana-traces"]
 port = 8787
 inspector_port = 9231
 
+[vars]
+ALOOK_DOMAIN = "agents.hypeer.cloud"
+
 [[d1_databases]]
 binding = "DB"
-database_id = "1593b87c-d8a8-4cdf-b6c0-c80d94442654"
+database_id = "8bbbae48-27b7-43b6-a250-b1e0c6c71632"
 database_name = "alook-app"
 
 [[r2_buckets]]

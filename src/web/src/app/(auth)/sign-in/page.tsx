@@ -22,6 +22,7 @@ import {
 import { SiGithub, SiGoogle } from "@icons-pack/react-simple-icons"
 import Image from "next/image"
 import { GradientBackground } from "@/components/gradient-background"
+import { Logo } from "@/components/logo"
 import { resolveMode, DEV_PASSWORD } from "@alook/shared"
 
 const mode = resolveMode({
@@ -360,6 +361,9 @@ export default function SignInPage() {
       <GradientBackground />
       <div className="w-full max-w-sm md:max-w-4xl">
         <div className="flex flex-col gap-6">
+          <div className="flex justify-center mb-2">
+            <Logo size="lg" />
+          </div>
           <Card className="overflow-hidden p-0">
             <CardContent className="grid p-0 md:grid-cols-2">
               <div className="p-6 md:p-8 md:min-h-105 flex flex-col justify-center">

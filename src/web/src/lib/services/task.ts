@@ -11,6 +11,7 @@ const agentQueries = queries.agent;
 const messageQueries = queries.message;
 const conversationQueries = queries.conversation;
 const issueQueries = queries.issue;
+const inboxQueries = queries.inbox;
 
 export class TaskService {
   constructor(private db: Database) {}
@@ -165,6 +166,7 @@ export class TaskService {
     // is still persisted on the task row (in `result`) for debugging.
     // (failTask still surfaces an error bubble — a failed run must not go silent.)
     await this.reconcileAgentStatus(task.agentId, task.workspaceId);
+    this.maybeUpsertUnread(task, workspaceId, null).catch(() => {});
     return task;
   }
 
@@ -182,6 +184,7 @@ export class TaskService {
       return task;
     }
 
+    let errorMessageId: string | null = null;
     if (error) {
       // Attribute the error to the agent runtime (Claude Code / Codex /
       // OpenCode) so the chat UI can make clear it did NOT come from Alook.
@@ -204,6 +207,7 @@ export class TaskService {
         taskId,
         metadata: JSON.stringify({ error_source: "runtime", provider }),
       });
+      errorMessageId = msg?.id ?? null;
 
       try {
         const conversation = await conversationQueries.getConversation(this.db, task.conversationId, workspaceId);
@@ -221,6 +225,7 @@ export class TaskService {
 
     await this.reconcileAgentStatus(task.agentId, task.workspaceId);
     await this.syncIssueStatusFromTask(task, "failed");
+    this.maybeUpsertUnread(task, workspaceId, errorMessageId).catch(() => {});
     return task;
   }
 
@@ -256,6 +261,33 @@ export class TaskService {
     } catch {
       // non-critical: don't let broadcast failure block task lifecycle
     }
+  }
+
+  private async maybeUpsertUnread(
+    task: { id: string; conversationId: string; type: string; parentTaskId?: string | null; traceId?: string | null; prompt: string; status: string; completedAt?: string | null; context?: unknown; workspaceId: string; agentId: string },
+    workspaceId: string,
+    knownMessageId: string | null,
+  ) {
+    if (!inboxQueries.isUnreadEligible(task)) return;
+    if (!task.completedAt) return;
+
+    const conversation = await conversationQueries.getConversation(this.db, task.conversationId, workspaceId);
+    if (!conversation) return;
+
+    const latestMessageId = knownMessageId ?? await inboxQueries.findLatestAssistantMessageId(this.db, task.conversationId);
+
+    await inboxQueries.upsertUnreadEntry(this.db, {
+      conversationId: task.conversationId,
+      userId: conversation.userId,
+      workspaceId,
+      agentId: conversation.agentId,
+      taskId: task.id,
+      taskType: task.type,
+      taskStatus: task.status,
+      taskPrompt: task.prompt,
+      completedAt: task.completedAt,
+      latestMessageId,
+    });
   }
 
   async supersedeTask(taskId: string, workspaceId: string) {

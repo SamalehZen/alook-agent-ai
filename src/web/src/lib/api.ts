@@ -367,19 +367,21 @@ export const sendMessage = async (
   content: string,
   workspaceId: string,
   files?: File[],
+  metadata?: Record<string, unknown>,
 ): Promise<{ message: Message; task: TaskApi }> => {
   if (!files || files.length === 0) {
     return apiFetch<{ message: Message; task: TaskApi }>(
       `/api/conversations/${conversationId}/messages${wsQuery(workspaceId)}`,
       {
         method: "POST",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...(metadata ? { metadata } : {}) }),
       },
     );
   }
 
   const fd = new FormData();
   fd.append("content", content);
+  if (metadata) fd.append("metadata", JSON.stringify(metadata));
   for (const file of files) {
     fd.append("file", file);
   }
@@ -437,6 +439,11 @@ export const createMachineToken = (name?: string, workspaceId?: string) =>
       method: "POST",
       body: JSON.stringify({ name: name || "default" }),
     }
+  );
+
+export const getMachineTokenStatus = () =>
+  apiFetch<{ status: "pending" | "registered" | "active" | null; workspace_id?: string; hostname?: string; daemon_online?: boolean; runtimes?: Array<{ id: string; type: string; version: string; status: string }> }>(
+    "/api/machine-tokens/status",
   );
 
 // Agent active tasks

@@ -1,0 +1,70 @@
+{
+  "productName": "Alook",
+  "version": "0.0.122",
+  "identifier": "ai.alook.desktop",
+  "build": {
+    "devUrl": "http://localhost:3000/workspaces?auto",
+    "frontendDist": "https://alook.ai/workspaces?auto"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "Your Personal Company",
+    "longDescription": "Run your personal company with AI agents that collaborate, stay always on, and learn from every task."
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Alook",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 21
+        }
+      }
+    ],
+    "security": {
+      "capabilities": []
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://alook.ai/api/desktop/update/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "pubkey": "RWQPlpaQzeEs/+9cMasjAS1iJ21kfounWfvXsXXqTrNI/nF+fz4OCyjJ"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "alook"
+        ]
+      },
+      "mobile": [
+        {
+          "scheme": [
+            "alook"
+          ],
+          "host": "alook.ai"
+        }
+      ]
+    }
+  }
+}

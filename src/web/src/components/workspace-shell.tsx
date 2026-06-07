@@ -13,7 +13,6 @@ import {
   SheetContent,
 } from "@/components/ui/sheet";
 import { AgentChatSheetProvider } from "@/contexts/agent-chat-sheet-context";
-
 const SidebarTriggerContext = createContext<(() => void) | null>(null);
 
 export function useSidebarTrigger() {

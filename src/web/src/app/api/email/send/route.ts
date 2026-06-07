@@ -18,9 +18,11 @@ async function broadcastEmailSentEvent(
   to: string,
   subject: string,
   emailId: string,
+  from: string,
 ) {
   const eventContent = `Email sent to ${to}: ${subject}`;
-  const metadata = JSON.stringify({ emailId });
+  const metadataObj = { emailId, subject, from, to, direction: "outbound" as const };
+  const metadata = JSON.stringify(metadataObj);
   const eventMsg = await queries.message.createMessage(db, {
     conversationId,
     role: "event",
@@ -37,7 +39,7 @@ async function broadcastEmailSentEvent(
       content: eventMsg.content,
       task_id: eventMsg.taskId,
       attachment_ids: null,
-      metadata: { emailId },
+      metadata: metadataObj,
       created_at: eventMsg.createdAt,
     },
   }).catch(() => {});
@@ -192,7 +194,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
           });
         }
         if (agent.ownerId) {
-          await broadcastEmailSentEvent(db, validatedConversationId, agent.ownerId, body.agentId, body.to, body.subject, email.id);
+          await broadcastEmailSentEvent(db, validatedConversationId, agent.ownerId, body.agentId, body.to, body.subject, email.id, fromAddress);
         }
       }
 
@@ -269,7 +271,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
       });
     }
     if (agent.ownerId) {
-      await broadcastEmailSentEvent(db, validatedConversationId, agent.ownerId, body.agentId, body.to, body.subject, email.id);
+      await broadcastEmailSentEvent(db, validatedConversationId, agent.ownerId, body.agentId, body.to, body.subject, email.id, fromAddress);
     }
   }
 

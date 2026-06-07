@@ -303,4 +303,74 @@ describe("POST /api/conversations/[id]/messages", () => {
 
     expect(mockGetConversation).toHaveBeenCalledWith({}, "c1", "w1");
   });
+
+  it("TC2: passes metadata.quote to createMessage and adds quoted_message to task context", async () => {
+    const conv = { id: "c1", workspaceId: "w1", agentId: "a1" };
+    const msg = { id: "m1", content: "Can you fix this?" };
+    const task = { id: "t1", status: "pending" };
+    mockGetConversation.mockResolvedValue(conv);
+    mockCreateMessage.mockResolvedValue(msg);
+    mockUpdateConversationTitle.mockResolvedValue(undefined);
+    mockEnqueueTask.mockResolvedValue(task);
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/conversations/c1/messages", {
+        method: "POST",
+        body: JSON.stringify({
+          content: "Can you fix this?",
+          metadata: { quote: { messageId: "msg_orig", excerpt: "The auth module has a bug" } },
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      withParams("c1")
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockCreateMessage).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        content: "Can you fix this?",
+        metadata: JSON.stringify({ quote: { messageId: "msg_orig", excerpt: "The auth module has a bug" } }),
+      }),
+    );
+    expect(mockEnqueueTask).toHaveBeenCalledWith(
+      "a1", "c1", "w1", "Can you fix this?", "user_dm_message",
+      expect.objectContaining({
+        context: expect.objectContaining({
+          message_id: "m1",
+          quoted_message: { message_id: "msg_orig", excerpt: "The auth module has a bug" },
+        }),
+      }),
+    );
+  });
+
+  it("TC3: message without metadata has no quote in metadata or task context", async () => {
+    const conv = { id: "c1", workspaceId: "w1", agentId: "a1" };
+    const msg = { id: "m1", content: "Hello" };
+    const task = { id: "t1", status: "pending" };
+    mockGetConversation.mockResolvedValue(conv);
+    mockCreateMessage.mockResolvedValue(msg);
+    mockUpdateConversationTitle.mockResolvedValue(undefined);
+    mockEnqueueTask.mockResolvedValue(task);
+
+    await POST(
+      new NextRequest("http://localhost/api/conversations/c1/messages", {
+        method: "POST",
+        body: JSON.stringify({ content: "Hello" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      withParams("c1")
+    );
+
+    expect(mockCreateMessage).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ metadata: null }),
+    );
+    expect(mockEnqueueTask).toHaveBeenCalledWith(
+      "a1", "c1", "w1", "Hello", "user_dm_message",
+      expect.objectContaining({
+        context: { message_id: "m1" },
+      }),
+    );
+  });
 });

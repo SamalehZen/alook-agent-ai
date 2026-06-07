@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { FileText } from "lucide-react";
 import type { Artifact } from "@alook/shared";
 import { useAgentContext } from "@/contexts/agent-context";
 import { AgentPreviewCard } from "@/components/agent-preview-card";
@@ -10,8 +9,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { SystemCard } from "@/components/agent-chat/message-list";
-import { formatSize } from "@/components/agent-chat/artifact-sheet";
+import { FileCard } from "@/components/agent-chat/event-cards/file-card";
 
 function MentionHighlight(
   props: Record<string, unknown> & { children?: React.ReactNode },
@@ -79,9 +77,6 @@ export function NapSeparator({ agentName }: { agentName: string }) {
   );
 }
 
-// Agent-side artifact (file) card — same shared SystemCard shell + card
-// language as the event cards (locked prototype: icon chip / FILE / filename /
-// size). The version badge rides along as the title's trailing element.
 export function ArtifactCard({
   artifact,
   version,
@@ -94,18 +89,12 @@ export function ArtifactCard({
   onClick: (a: Artifact) => void;
 }) {
   return (
-    <SystemCard
-      icon={FileText}
-      label="FILE"
-      title={artifact.filename}
-      preview={formatSize(artifact.size)}
-      trailing={
-        hasDuplicates ? (
-          <span className="shrink-0 text-xs text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 font-normal">
-            v{version}
-          </span>
-        ) : undefined
-      }
+    <FileCard
+      filename={artifact.filename}
+      size={artifact.size}
+      contentType={artifact.content_type ?? undefined}
+      version={version}
+      hasDuplicates={hasDuplicates}
       onClick={() => onClick(artifact)}
     />
   );

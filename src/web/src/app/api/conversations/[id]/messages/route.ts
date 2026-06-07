@@ -70,6 +70,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   const isMultipart = contentType.includes("multipart/form-data");
 
   let content: string;
+  let messageMetadata: Record<string, unknown> | undefined;
   const files: File[] = [];
 
   if (isMultipart) {
@@ -80,6 +81,10 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
       return writeError("invalid form data", 400);
     }
     content = (formData.get("content") as string) || "";
+    const metaRaw = formData.get("metadata") as string | null;
+    if (metaRaw) {
+      try { messageMetadata = JSON.parse(metaRaw); } catch { /* ignore malformed */ }
+    }
     for (const [key, value] of formData.entries()) {
       if (key === "file" && value instanceof File) {
         files.push(value);
@@ -89,6 +94,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     const [body, valErr] = await parseBody(req, CreateMessageRequestSchema);
     if (valErr) return valErr;
     content = body.content;
+    messageMetadata = body.metadata;
   }
 
   if (isMultipart && !content) {
@@ -142,6 +148,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     role: "user",
     content,
     attachmentIds: artifactIds.length > 0 ? JSON.stringify(artifactIds) : null,
+    metadata: messageMetadata ? JSON.stringify(messageMetadata) : null,
   });
 
   broadcastToUser(ctx.userId, {
@@ -181,9 +188,12 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   }
 
   const contextKey = id;
+  const quote = messageMetadata?.quote as { messageId?: string; excerpt?: string } | undefined;
   const taskContext: Record<string, unknown> = {
+    message_id: message.id,
     ...(artifactIds.length > 0 ? { attachment_ids: artifactIds } : {}),
     ...mentionContext,
+    ...(quote ? { quoted_message: { message_id: quote.messageId, excerpt: quote.excerpt } } : {}),
   };
   const traceId = "tr_" + nanoid();
   const taskService = new TaskService(db);

@@ -2,9 +2,9 @@ import type { Task, Attachment } from "./types.js";
 import { localISOString } from "./execenv/timeline.js";
 
 const DM_RESPONSE_NOTICE =
-  "Reply with `alook sync send-dm` — that's the only thing the user sees;" +
-  " your task output and reasoning are not shown." +
-  " Talk to them at milestones like a colleague would, and don't end your turn without sending what they need.";
+  "Reply with `alook sync send-dm` — that's the only thing the user sees; your task output and reasoning are not shown." +
+  " Talk to them at milestones like a colleague would, and don't end your turn without sending what they need." +
+  " If this task will take more than 30 seconds, send a quick ack first so the user knows you're on it.";
 
 const EMAIL_NOTICE =
   "This task was triggered automatically by an incoming email. There is no human in this session." +
@@ -50,6 +50,13 @@ export function buildTaskObject(task: Task, attachments?: Attachment[]): Record<
   };
   if (task.type === "user_dm_message") {
     obj.notice = DM_RESPONSE_NOTICE;
+    const ctx = task.context as Record<string, unknown> | undefined;
+    if (ctx?.message_id) {
+      obj.message_id = ctx.message_id;
+    }
+    if (ctx?.quoted_message) {
+      obj.quoted_message = ctx.quoted_message;
+    }
   }
   if (task.type === "email_notification") {
     const ctx = task.context as Record<string, unknown> | undefined;

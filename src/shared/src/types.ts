@@ -279,8 +279,9 @@ export interface MeetingSession {
 
 /** WebSocket event types — single source of truth for the WS protocol. */
 export type WsMessage =
+  | { type: "machine.registered"; daemonId: string; hostname: string }
   | { type: "runtime.registered"; daemonId: string; hostname: string; workspaceId: string }
-  | { type: "runtime.status"; daemonId: string; workspaceId: string; status: string }
+  | { type: "runtime.status"; daemonId: string; workspaceId?: string; status: string; standby?: boolean }
   | { type: "runtime.deleted"; daemonId: string }
   | { type: "task.created"; conversationId: string; task: TaskApi }
   | { type: "task.updated"; taskId: string; agentId: string; status: string }
@@ -310,3 +311,4 @@ export type DaemonPushMessage =
   | { type: "daemon.update"; version: string }
   | { type: "daemon.rescan" }
   | { type: "daemon.kill"; workspaceId: string; agentId: string; taskId: string; targetTaskId: string }
+  | { type: "daemon.workspace_added"; workspaceId: string; workspaceName: string; token: string }

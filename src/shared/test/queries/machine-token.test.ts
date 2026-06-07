@@ -18,7 +18,10 @@ describe("machine-token exports", () => {
   it("exports createMachineToken", () => { expect(typeof mt.createMachineToken).toBe("function"); });
   it("exports getMachineTokenByToken", () => { expect(typeof mt.getMachineTokenByToken).toBe("function"); });
   it("exports getPendingMachineToken", () => { expect(typeof mt.getPendingMachineToken).toBe("function"); });
+  it("exports registerMachineToken", () => { expect(typeof mt.registerMachineToken).toBe("function"); });
   it("exports activateMachineToken", () => { expect(typeof mt.activateMachineToken).toBe("function"); });
+  it("exports getRegisteredTokenForUser", () => { expect(typeof mt.getRegisteredTokenForUser).toBe("function"); });
+  it("exports getLatestTokenForUser", () => { expect(typeof mt.getLatestTokenForUser).toBe("function"); });
   it("exports listMachineTokens", () => { expect(typeof mt.listMachineTokens).toBe("function"); });
   it("exports deleteMachineToken", () => { expect(typeof mt.deleteMachineToken).toBe("function"); });
   it("exports updateMachineTokenLastUsed", () => { expect(typeof mt.updateMachineTokenLastUsed).toBe("function"); });
@@ -72,6 +75,20 @@ describe("getPendingMachineToken", () => {
   });
 });
 
+describe("registerMachineToken", () => {
+  it("sets registered status with hostname and runtimes", async () => {
+    const chain: any = {};
+    chain.update = vi.fn(() => chain); chain.set = vi.fn(() => chain);
+    chain.where = vi.fn(() => Promise.resolve());
+    await mt.registerMachineToken(chain, "mt_1", "host.local", '[{"type":"claude"}]');
+    expect(chain.set).toHaveBeenCalledWith(expect.objectContaining({
+      status: "registered",
+      hostname: "host.local",
+      runtimesJson: '[{"type":"claude"}]',
+    }));
+  });
+});
+
 describe("activateMachineToken", () => {
   it("sets active", async () => {
     const chain: any = {};
@@ -86,6 +103,43 @@ describe("activateMachineToken", () => {
     chain.where = vi.fn(() => Promise.resolve());
     await mt.activateMachineToken(chain, "mt_1", "ws_1");
     expect(chain.set).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws_1" }));
+  });
+});
+
+describe("getRegisteredTokenForUser", () => {
+  it("returns null when none", async () => {
+    const chain: any = {};
+    chain.select = vi.fn(() => chain); chain.from = vi.fn(() => chain);
+    chain.where = vi.fn(() => chain); chain.orderBy = vi.fn(() => chain);
+    chain.limit = vi.fn(() => Promise.resolve([]));
+    expect(await mt.getRegisteredTokenForUser(chain, "u")).toBeNull();
+  });
+  it("returns registered token ordered by createdAt ASC", async () => {
+    const t = { id: "mt_1", status: "registered" };
+    const chain: any = {};
+    chain.select = vi.fn(() => chain); chain.from = vi.fn(() => chain);
+    chain.where = vi.fn(() => chain); chain.orderBy = vi.fn(() => chain);
+    chain.limit = vi.fn(() => Promise.resolve([t]));
+    expect(await mt.getRegisteredTokenForUser(chain, "u")).toEqual(t);
+    expect(chain.orderBy).toHaveBeenCalled();
+  });
+});
+
+describe("getLatestTokenForUser", () => {
+  it("returns null when no tokens exist", async () => {
+    const chain: any = {};
+    chain.select = vi.fn(() => chain); chain.from = vi.fn(() => chain);
+    chain.where = vi.fn(() => chain); chain.orderBy = vi.fn(() => chain);
+    chain.limit = vi.fn(() => Promise.resolve([]));
+    expect(await mt.getLatestTokenForUser(chain, "u")).toBeNull();
+  });
+  it("returns latest token with status", async () => {
+    const t = { id: "mt_1", status: "active" };
+    const chain: any = {};
+    chain.select = vi.fn(() => chain); chain.from = vi.fn(() => chain);
+    chain.where = vi.fn(() => chain); chain.orderBy = vi.fn(() => chain);
+    chain.limit = vi.fn(() => Promise.resolve([t]));
+    expect(await mt.getLatestTokenForUser(chain, "u")).toEqual(t);
   });
 });
 

@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ToasterProvider } from "@/components/toaster-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MockNetworkBanner } from "@/components/mock-network-banner";
+import { TauriThemeSync } from "@/components/tauri-theme-sync";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -42,7 +43,6 @@ const literata = Literata({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
-
 
 const SITE_URL = "https://alook.ai";
 const OG_IMAGE_URL = "/og?title=Your Personal Company";
@@ -170,6 +170,7 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <TauriThemeSync />
           <TooltipProvider>
             {children}
           </TooltipProvider>

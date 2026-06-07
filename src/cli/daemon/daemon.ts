@@ -251,14 +251,18 @@ export async function startDaemon(
 
   const cliConfig = loadCLIConfigForProfile(profile);
 
-  const workspaces = cliConfig.watched_workspaces || [];
-  if (workspaces.length === 0) {
-    log.error("No watched workspaces configured.");
-    process.exit(1);
-    return;
+  const allEntries = cliConfig.watched_workspaces || [];
+  const workspaces = allEntries.filter((ws): ws is typeof ws & { id: string; name: string } => ws.status !== "registered" && !!ws.id);
+  const registeredEntries = allEntries.filter((ws) => ws.status === "registered" && !ws.id);
+  const standbyToken = registeredEntries[0]?.token ?? null;
+
+  if (workspaces.length === 0 && standbyToken) {
+    log.info("No workspaces configured — daemon starting in standby mode with machine token. Awaiting workspace binding.");
+  } else if (workspaces.length === 0) {
+    log.info("No workspaces configured — daemon starting in standby mode. Register a workspace to begin.");
   }
 
-  // Validate: each workspace must have its own token
+  // Validate: each active workspace must have its own token
   const hasPerWorkspaceTokens = workspaces.every((ws) => !!ws.token);
   if (!hasPerWorkspaceTokens) {
     log.error(
@@ -298,6 +302,7 @@ export async function startDaemon(
 
   const workspaceStates: WorkspaceState[] = [];
   const runtimeIndex = new Map<string, RuntimeData>();
+  let hadWorkspaces = workspaces.length > 0;
 
   for (const ws of workspaces) {
     const runtimes = providers.map((p) => ({
@@ -338,7 +343,7 @@ export async function startDaemon(
     }
   }
 
-  if (workspaceStates.length === 0) {
+  if (workspaceStates.length === 0 && workspaces.length > 0) {
     log.error("No workspaces registered successfully.");
     process.exit(1);
     return;
@@ -400,6 +405,59 @@ export async function startDaemon(
     }
 
     log.info(`Workspace ${workspaceId} deleted server-side — removed from config`);
+  }
+
+  async function handleWorkspaceAdded(workspaceId: string, workspaceName: string, token: string): Promise<void> {
+    if (workspaceStates.some((ws) => ws.workspaceId === workspaceId)) {
+      log.info(`Workspace ${workspaceId} already registered — ignoring workspace_added`);
+      return;
+    }
+
+    log.info(`Workspace ${workspaceId} bound — registering...`);
+    const runtimes = providers.map((p) => ({ type: p.type, version: p.version }));
+    try {
+      const resp = await client.register(token, {
+        workspace_id: workspaceId,
+        daemon_id: config.daemonId,
+        device_name: config.deviceName,
+        cli_version: config.cliVersion,
+        workspaces_root: config.workspacesRoot,
+        runtimes,
+      });
+      const runtimeIds = resp.runtimes.map((r: { id: string }) => r.id);
+      workspaceStates.push({ workspaceId, token, runtimeIds });
+      for (let i = 0; i < runtimeIds.length; i++) {
+        runtimeIndex.set(runtimeIds[i], {
+          id: runtimeIds[i],
+          workspaceId,
+          provider: providers[i].type,
+        });
+      }
+      hadWorkspaces = true;
+      health.setRuntimeCount(
+        workspaceStates.reduce((sum, w) => sum + w.runtimeIds.length, 0),
+      );
+
+      try {
+        const cfg = loadCLIConfigForProfile(profile);
+        const watched = cfg.watched_workspaces || [];
+        // Find the registered entry with this token and promote it to active
+        const registeredIdx = watched.findIndex((w) => w.token === token && w.status === "registered" && !w.id);
+        if (registeredIdx !== -1) {
+          watched[registeredIdx] = { id: workspaceId, name: workspaceName, token, status: "active", agent_ids: [] };
+        } else if (!watched.some((w) => w.id === workspaceId)) {
+          watched.push({ id: workspaceId, name: workspaceName, token, status: "active" });
+        }
+        cfg.watched_workspaces = watched;
+        saveCLIConfigForProfile(profile, cfg);
+      } catch {
+        // Best-effort config write
+      }
+
+      log.info(`Workspace ${workspaceId} added via WS push — ${runtimeIds.length} runtime(s)`);
+    } catch (e) {
+      log.error(`Failed to register workspace ${workspaceId} from WS push`, e);
+    }
   }
 
   // Staggered per-workspace polling
@@ -498,7 +556,7 @@ export async function startDaemon(
       evictWorkspace(id);
     }
 
-    if (workspaceStates.length === 0) {
+    if (workspaceStates.length === 0 && hadWorkspaces) {
       log.info("All workspaces evicted — shutting down");
       shutdown();
     }
@@ -621,27 +679,72 @@ export async function startDaemon(
         }
         break;
       }
+
+      case "daemon.workspace_added": {
+        handleWorkspaceAdded(msg.workspaceId, msg.workspaceName, msg.token);
+        break;
+      }
     }
   }
 
-  const wsClient = firstToken
+  const wsToken = firstToken || standbyToken;
+
+  let wsClient = wsToken
     ? new DaemonWsClient({
         serverURL: config.serverURL,
         daemonId: config.daemonId,
-        machineToken: firstToken,
+        machineToken: wsToken,
         onMessage: handleWsPush,
         onConnected: () => {
-          log.info("WS connected — switching to low-frequency poll");
-          updatePollInterval(config.wsPollInterval);
+          if (workspaceStates.length > 0) {
+            log.info("WS connected — switching to low-frequency poll");
+            updatePollInterval(config.wsPollInterval);
+          } else {
+            log.info("WS connected in standby mode — awaiting workspace binding");
+          }
         },
         onDisconnected: () => {
-          log.info("WS disconnected — reverting to high-frequency poll");
-          updatePollInterval(config.pollInterval);
+          if (workspaceStates.length > 0) {
+            log.info("WS disconnected — reverting to high-frequency poll");
+            updatePollInterval(config.pollInterval);
+          }
         },
       })
     : null;
 
   wsClient?.connect();
+
+  // --- Standby poll fallback: if WS push is lost, periodically check for workspace bindings ---
+  const STANDBY_POLL_MS = 30_000;
+  let standbyPollTimer: ReturnType<typeof setInterval> | null = null;
+
+  if (standbyToken && workspaceStates.length === 0) {
+    const standbyPollTick = async () => {
+      if (workspaceStates.length > 0) {
+        if (standbyPollTimer) { clearInterval(standbyPollTimer); standbyPollTimer = null; }
+        return;
+      }
+      try {
+        const runtimes = providers.map((p) => ({ type: p.type, version: p.version }));
+        const resp = await client.checkStandby(standbyToken, {
+          daemon_id: config.daemonId,
+          device_name: config.deviceName,
+          cli_version: config.cliVersion,
+          workspaces_root: config.workspacesRoot,
+          runtimes,
+        });
+        if (!resp.standby && resp.runtimes.length > 0 && resp.workspaceId) {
+          log.info(`Standby poll: workspace ${resp.workspaceId} discovered via fallback`);
+          await handleWorkspaceAdded(resp.workspaceId, "", standbyToken);
+          if (standbyPollTimer) { clearInterval(standbyPollTimer); standbyPollTimer = null; }
+        }
+      } catch (e) {
+        log.debug("standby poll failed", { err: e instanceof Error ? e.message : String(e) });
+      }
+    };
+    standbyPollTick();
+    standbyPollTimer = setInterval(standbyPollTick, STANDBY_POLL_MS);
+  }
 
   // --- Sweep timer: triggers server-side sweep + local reconciliation ---
   const sweepTick = async () => {
@@ -685,6 +788,7 @@ export async function startDaemon(
     clearInterval(pollTimer);
     clearInterval(heartbeatTimer);
     clearInterval(sweepTimer);
+    if (standbyPollTimer) clearInterval(standbyPollTimer);
     stopSkillScanner();
     wsClient?.close();
 
@@ -736,7 +840,8 @@ export async function startDaemon(
     log.info("SIGHUP received — reloading config...");
     try {
       const freshConfig = loadCLIConfigForProfile(profile);
-      const freshWorkspaces = freshConfig.watched_workspaces || [];
+      const freshWorkspaces = (freshConfig.watched_workspaces || [])
+        .filter((ws): ws is typeof ws & { id: string } => ws.status !== "registered" && !!ws.id);
       const existingIds = new Set(workspaceStates.map((ws) => ws.workspaceId));
 
       const newWorkspaces = freshWorkspaces.filter(
@@ -771,9 +876,29 @@ export async function startDaemon(
       }
 
       if (newWorkspaces.length > 0) {
+        hadWorkspaces = true;
         health.setRuntimeCount(
           workspaceStates.reduce((sum, w) => sum + w.runtimeIds.length, 0),
         );
+        if (!wsClient && workspaceStates.length > 0) {
+          const token = workspaceStates[0].token;
+          wsClient = new DaemonWsClient({
+            serverURL: config.serverURL,
+            daemonId: config.daemonId,
+            machineToken: token,
+            onMessage: handleWsPush,
+            onConnected: () => {
+              log.info("WS connected — switching to low-frequency poll");
+              updatePollInterval(config.wsPollInterval);
+            },
+            onDisconnected: () => {
+              log.info("WS disconnected — reverting to high-frequency poll");
+              updatePollInterval(config.pollInterval);
+            },
+          });
+          wsClient.connect();
+          log.info("WS push client initialized after SIGHUP reload");
+        }
         log.info(`Reload complete — now polling ${workspaceStates.length} workspace(s)`);
       } else {
         log.info("Reload complete — no new workspaces found");
@@ -1002,10 +1127,40 @@ async function handleTask(
     const timelineDir = join(agentBaseDir, ".context_timeline");
     const ctxKey = task.contextKey;
 
-    const lockAcquired = acquireSteeringLock(agentBaseDir, ctxKey);
+    let lockAcquired = acquireSteeringLock(agentBaseDir, ctxKey);
     if (!lockAcquired) {
-      log.warn(`Steering lock contention for context_key=${ctxKey}, proceeding without steering`);
-    } else {
+      // Lock held by another task's steering cycle. Wait for the owner to
+      // create a pendingSteer entry so we can merge into it, rather than
+      // bypassing steering and spawning a concurrent runner.
+      const MERGE_WAIT_MS = 5_000;
+      const MERGE_POLL_MS = 50;
+      const mergeStart = Date.now();
+      while (Date.now() - mergeStart < MERGE_WAIT_MS) {
+        const existing = pendingSteer.get(ctxKey);
+        if (existing) {
+          const attachmentIds = (task.context?.attachment_ids as string[]) ?? [];
+          let myAttachments: Attachment[] = [];
+          if (attachmentIds.length > 0) {
+            try { myAttachments = await downloadAttachments(client, token, task.workspaceId, task.id, attachmentIds); } catch { /* best effort */ }
+          }
+          existing.tasks.push(task);
+          existing.attachments.set(task.id, myAttachments);
+          log.info(`Steering: ${task.id} merged into pending entry (lock contention) for context_key=${ctxKey} (${existing.tasks.length} tasks)`);
+          existing.wake();
+          try { await client.supersedeTask(token, task.id); } catch { /* best effort */ }
+          activeTasks.delete(task.id);
+          return;
+        }
+        // Owner hasn't set the entry yet — also try acquiring the lock ourselves
+        lockAcquired = acquireSteeringLock(agentBaseDir, ctxKey);
+        if (lockAcquired) break;
+        await new Promise((r) => setTimeout(r, MERGE_POLL_MS));
+      }
+      if (!lockAcquired) {
+        log.warn(`Steering lock contention for context_key=${ctxKey}, proceeding without steering`);
+      }
+    }
+    if (lockAcquired) {
       try {
         const result = findSupersedablePredecessor(timelineDir, ctxKey, provider, steerWarmupGraceMs(), Date.now());
 
@@ -1076,7 +1231,7 @@ async function handleTask(
               }
               try {
                 await client.supersedeTask(token, predecessor.task_id);
-              } catch (e) { log.warn(`Steering: failed to mark predecessor superseded`, e); }
+              } catch { /* best effort — predecessor may already be in terminal state from its close handler */ }
             }
 
             // Build merged prompt if multiple tasks accumulated.
@@ -1112,6 +1267,7 @@ async function handleTask(
             existing.attachments.set(task.id, myAttachments);
             log.info(`Steering: ${task.id} merged into pending entry for context_key=${ctxKey} (${existing.tasks.length} tasks)`);
             existing.wake();
+            try { await client.supersedeTask(token, task.id); } catch { /* best effort */ }
             activeTasks.delete(task.id);
             return; // Non-owner exits — owner spawns on my behalf. Lock released by finally.
           }
@@ -1156,39 +1312,42 @@ async function handleTask(
     activeTasks.delete(task.id);
     if (code !== 0) {
       const agentBaseDir = join(config.workspacesRoot, task.workspaceId, task.agentId, "workdir");
+
+      // Check kill intent first — if present, the exit was expected.
       const killIntent = readKillIntent(agentBaseDir, task.id);
       if (killIntent) {
-        log.info(`Task ${task.id} exited due to kill intent — skipping failTask`);
+        log.info(`Task ${task.id} exited (${killIntent.reason}) — expected, skipping failTask`);
         clearKillIntent(agentBaseDir, task.id);
         return;
       }
 
-      const msg = code === null
-        ? `session-runner killed by signal (task ${task.id})`
-        : `session-runner crashed (exit code ${code}, task ${task.id})`;
-      log.warn(msg);
-
-      // Update timeline JSONL as fallback
-      const timelineDir = join(agentBaseDir, ".context_timeline");
-      updateEntry(timelineDir, task.id, (entry) => {
-        entry.pid = null;
-        entry.status = "failed";
-        entry.errmsg = msg;
-      });
-
+      // No intent file — the session-runner's onKill handler may have already
+      // cleared it and marked the task terminal (superseded/cancelled/failed).
+      // Try to mark it failed server-side; if it's already terminal, that's fine.
+      const errorMsg = code === null ? "killed by signal" : `session-runner exited with code ${code}`;
       try {
-        await client.failTask(token, task.id, msg);
+        await client.failTask(token, task.id, errorMsg);
+        // failTask succeeded → this was a genuine unexpected crash.
+        log.warn(`session-runner crashed (${errorMsg}, task ${task.id})`);
+        const timelineDir = join(agentBaseDir, ".context_timeline");
+        updateEntry(timelineDir, task.id, (entry) => {
+          entry.pid = null;
+          entry.status = "failed";
+          entry.errmsg = errorMsg;
+        });
       } catch (e) {
         if (isClientError(e)) {
-          log.info(`Backstop: task ${task.id} already in terminal state`);
+          // Task already in terminal state (session-runner's onKill handled it).
+          // This is the normal path for superseded/cancelled tasks — not a crash.
+          log.info(`Task ${task.id} exited (already terminal) — session-runner handled cleanup`);
           return;
         }
-        log.error(`Backstop: failed to report crash for task ${task.id}`, e);
+        log.error(`Failed to report crash for task ${task.id}`, e);
         try {
           await writeMarkerFile(config.workspacesRoot, {
             taskId: task.id,
             type: "fail",
-            payload: { error: msg },
+            payload: { error: errorMsg },
             token,
             serverURL: config.serverURL,
             createdAt: new Date().toISOString(),

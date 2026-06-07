@@ -650,6 +650,8 @@ export const machineToken = sqliteTable(
     token: text("token").unique().notNull(),
     name: text("name").notNull().default(""),
     status: text("status").notNull().default("active"),
+    hostname: text("hostname"),
+    runtimesJson: text("runtimes_json"),
     lastUsedAt: text("last_used_at"),
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
@@ -786,5 +788,30 @@ export const agentSkill = sqliteTable(
       columns: [t.agentId, t.workspaceId],
       foreignColumns: [agent.id, agent.workspaceId],
     }).onDelete("cascade"),
+  ]
+);
+
+export const inboxUnread = sqliteTable(
+  "inbox_unread",
+  {
+    id: text("id").primaryKey().$defaultFn(() => nanoid()),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id").notNull(),
+    agentId: text("agent_id").notNull(),
+    taskId: text("task_id").notNull(),
+    taskType: text("task_type").notNull(),
+    taskStatus: text("task_status").notNull(),
+    taskPrompt: text("task_prompt"),
+    completedAt: text("completed_at").notNull(),
+    latestMessageId: text("latest_message_id"),
+  },
+  (t) => [
+    unique("inbox_unread_conv_user").on(t.conversationId, t.userId),
+    index("idx_inbox_unread_user_ws").on(t.userId, t.workspaceId, t.taskType, t.completedAt),
   ]
 );

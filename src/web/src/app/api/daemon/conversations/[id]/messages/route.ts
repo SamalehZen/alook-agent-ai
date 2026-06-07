@@ -53,5 +53,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     message: messageToResponse(message),
   }).catch(() => {});
 
+  queries.inbox.updateUnreadLatestMessage(db, id, conversation.userId, message.id).catch(() => {});
+
   return writeJSON({ message: messageToResponse(message) }, 201);
 });

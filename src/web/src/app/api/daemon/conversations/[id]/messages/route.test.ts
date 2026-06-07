@@ -10,6 +10,7 @@ const m = {
   getConversation: vi.fn(),
   createMessage: vi.fn(),
   updateConversationTitle: vi.fn(),
+  updateUnreadLatestMessage: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("@alook/shared", async () => {
@@ -23,6 +24,9 @@ vi.mock("@alook/shared", async () => {
       },
       message: {
         createMessage: (...a: unknown[]) => m.createMessage(...a),
+      },
+      inbox: {
+        updateUnreadLatestMessage: (...a: unknown[]) => m.updateUnreadLatestMessage(...a),
       },
     },
   };

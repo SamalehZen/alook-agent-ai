@@ -175,6 +175,7 @@ export const DaemonPushMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("daemon.update"), version: z.string() }),
   z.object({ type: z.literal("daemon.rescan") }),
   z.object({ type: z.literal("daemon.kill"), workspaceId: z.string(), agentId: z.string().min(1), taskId: z.string(), targetTaskId: z.string() }),
+  z.object({ type: z.literal("daemon.workspace_added"), workspaceId: z.string(), workspaceName: z.string(), token: z.string() }),
 ]);
 export type DaemonPushMessageType = z.infer<typeof DaemonPushMessageSchema>;
 
@@ -223,6 +224,11 @@ export const RegisterDaemonRequestSchema = z.object({
   runtimes: z.array(DaemonRuntimeItemSchema).min(1),
 });
 export type RegisterDaemonRequest = z.infer<typeof RegisterDaemonRequestSchema>;
+
+export const BindWorkspaceRequestSchema = z.object({
+  workspace_id: z.string().min(1),
+});
+export type BindWorkspaceRequest = z.infer<typeof BindWorkspaceRequestSchema>;
 
 export const DeregisterRequestSchema = z.object({
   daemon_id: z.string().min(1),
@@ -539,6 +545,7 @@ export type CreateConversationRequest = z.infer<
 
 export const CreateMessageRequestSchema = z.object({
   content: z.string().min(1, "content is required"),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type CreateMessageRequest = z.infer<typeof CreateMessageRequestSchema>;
 

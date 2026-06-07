@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { SignupTracker } from "@/components/signup-tracker";
+import { SigninTracker } from "@/components/signin-tracker";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -14,5 +16,11 @@ export default async function AppLayout({
   const session = await getSession();
   if (!session) redirect("/sign-in");
 
-  return <>{children}</>;
+  return (
+    <>
+      <SignupTracker />
+      <SigninTracker />
+      {children}
+    </>
+  );
 }

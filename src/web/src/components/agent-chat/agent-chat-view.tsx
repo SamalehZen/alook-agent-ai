@@ -16,6 +16,7 @@ import {
   getTask,
   updateIssue,
   getAgentSkills,
+  cancelActiveTask,
 } from "@/lib/api";
 import { useLatest } from "@/components/agent-chat/chat-message-utils";
 import type {
@@ -42,8 +43,8 @@ import {
   Loader2,
   Mail,
   MessageSquareQuote,
-  MoreHorizontal,
   Paperclip,
+  Square,
   X,
 } from "lucide-react";
 import { useAgentChat } from "@/hooks/use-agent-chat";
@@ -73,6 +74,7 @@ import {
 import { ScrollToBottomButton } from "@/components/ui/scroll-to-bottom-button";
 import { MessageItem, AgentRow } from "@/components/agent-chat/message-list";
 import { PresenceLine } from "@/components/agent-chat/presence-line";
+import { MenuToggleIcon } from "@/components/agent-chat/menu-toggle-icon";
 import { parseAvatarUrl } from "@/components/avatar";
 import {
   MENTION_COMPONENTS,
@@ -186,7 +188,7 @@ export function AgentChatView({
   const [caretIndex, setCaretIndex] = useState<number | null>(null);
   const [renderNow] = useState(() => Date.now());
 
-  const [quotedText, setQuotedText] = useState<string | null>(() => {
+  const [quotedMessage, setQuotedMessage] = useState<{ id: string; excerpt: string } | null>(() => {
     if (typeof window === "undefined") return null;
     try {
       const meta = JSON.parse(
@@ -194,7 +196,8 @@ export function AgentChatView({
           `chat-draft-meta:${agentId}:${targetConvId ?? "default"}`,
         ) ?? "null",
       );
-      return meta?.quote ?? null;
+      const q = meta?.quote;
+      return q && typeof q === "object" && q.id ? q : null;
     } catch {
       return null;
     }
@@ -217,7 +220,7 @@ export function AgentChatView({
   // because `slashCommand` is defined after `useAgentChat` (it needs the
   // hook-created `composerRef`).
   const inputRef = useLatest(input);
-  const quotedTextRef = useLatest(quotedText);
+  const quotedMessageRef = useLatest(quotedMessage);
   const pendingFilesRef = useLatest(pendingFiles);
   const activeSkillRef = useRef<SkillEntry | null>(null);
   // Holds the `slashCommand` instance (created after this hook call, since it
@@ -246,12 +249,12 @@ export function AgentChatView({
       setFlaggedIds,
       setPendingFiles,
       setInput,
-      setQuotedText,
+      setQuotedMessage,
       setActiveSkill: (skill: SkillEntry | null) =>
         slashCommandRef.current?.setActiveSkill(skill),
       clearActiveSkill: () => slashCommandRef.current?.clearActiveSkill(),
       inputRef,
-      quotedTextRef,
+      quotedMessageRef,
       pendingFilesRef,
       activeSkillRef,
       draftMetaRestoredRef,
@@ -309,6 +312,7 @@ export function AgentChatView({
         window.open(getArtifactUrl(artifact.id, workspaceId, true), "_blank");
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setState fns are stable
     [workspaceId],
   );
 
@@ -321,6 +325,7 @@ export function AgentChatView({
         window.open(getArtifactUrl(artifact.id, workspaceId, true), "_blank");
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setState fns are stable
     [workspaceId],
   );
 
@@ -368,10 +373,12 @@ export function AgentChatView({
     getAnchorPos: useCallback(
       (triggerStart: number) =>
         composerRef.current?.coordsAtTextIndex(triggerStart) ?? null,
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef is stable
       [],
     ),
     onAfterSelect: useCallback(() => {
       requestAnimationFrame(() => composerRef.current?.focus());
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef is stable
     }, []),
   });
 
@@ -412,7 +419,7 @@ export function AgentChatView({
     const key = `chat-draft-meta:${agentId}:${targetConvId ?? "default"}`;
     const meta: {
       skill?: { name: string; description: string } | null;
-      quote?: string | null;
+      quote?: { id: string; excerpt: string } | null;
     } = {};
     if (slashCommand.activeSkill) {
       meta.skill = {
@@ -420,20 +427,21 @@ export function AgentChatView({
         description: slashCommand.activeSkill.description,
       };
     }
-    if (quotedText) {
-      meta.quote = quotedText;
+    if (quotedMessage) {
+      meta.quote = quotedMessage;
     }
     if (meta.skill || meta.quote) {
       localStorage.setItem(key, JSON.stringify(meta));
     } else {
       localStorage.removeItem(key);
     }
-  }, [slashCommand.activeSkill, quotedText, agentId, targetConvId]);
+  }, [slashCommand.activeSkill, quotedMessage, agentId, targetConvId]);
 
   useEffect(() => {
     if (!sending) {
       composerRef.current?.focus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef is stable
   }, [sending]);
 
 
@@ -441,13 +449,24 @@ export function AgentChatView({
 
   const handleQuoteSelection = useCallback(() => {
     if (selectionPopup) {
-      setQuotedText(selectionPopup.text);
+      const excerpt = selectionPopup.text.slice(0, 100);
+      setQuotedMessage(
+        selectionPopup.messageId
+          ? { id: selectionPopup.messageId, excerpt }
+          : null,
+      );
       setSelectionPopup(null);
       window.getSelection()?.removeAllRanges();
       composerRef.current?.focus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef and setSelectionPopup are stable
   }, [selectionPopup]);
 
+  const handleQuoteMessage = useCallback((messageId: string, excerpt: string) => {
+    setQuotedMessage({ id: messageId, excerpt });
+    composerRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- composerRef is stable
+  }, []);
 
   useEffect(() => {
     if (!issueSheetOpen || !selectedIssueId) return;
@@ -500,6 +519,7 @@ export function AgentChatView({
         });
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setState fns are stable
   }, [
     issueSheetOpen,
     selectedIssueId,
@@ -510,12 +530,25 @@ export function AgentChatView({
   ]);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   const isTaskActive =
     !!activeTask &&
     !["completed", "failed", "cancelled", "superseded"].includes(
       activeTask.status,
     );
+
+  const handleStop = useCallback(async () => {
+    if (!conversation?.id || stopping) return;
+    setStopping(true);
+    try {
+      await cancelActiveTask(conversation.id, workspaceId);
+    } catch {
+      toast.error("Failed to stop the task");
+    } finally {
+      setStopping(false);
+    }
+  }, [conversation?.id, workspaceId, stopping]);
 
   // Rotating capability-hint placeholder for the idle, empty composer. Freezes
   // on focus/typing, resumes on empty blur; never rotates while a task is
@@ -530,11 +563,11 @@ export function AgentChatView({
     return (
       <>
         <div className="flex-1 overflow-y-auto px-3 md:px-5">
-          <div className="mx-auto max-w-3xl py-6 space-y-4 motion-safe:animate-[fade-up_200ms_ease-out_both]">
+          <div className="mx-auto max-w-3xl py-6 space-y-6 motion-safe:animate-[fade-up_200ms_ease-out_both]">
             {/* Agent cluster — top [avatar][name] header, bubbles stacked below
                 in the gutter (mirrors AgentRow's Slack/Discord layout). */}
             <div className="flex justify-start items-start gap-2">
-              <Skeleton className="size-[30px] shrink-0 rounded-md" />
+              <Skeleton className="size-7.5 shrink-0 rounded-md" />
               <div className="flex flex-col items-start gap-1 max-w-[86%]">
                 <Skeleton className="h-3 w-20 rounded mb-0.5" />
                 <Skeleton className="h-9 w-64 rounded-[1.05rem]" />
@@ -548,7 +581,7 @@ export function AgentChatView({
             </div>
             {/* Another agent cluster */}
             <div className="flex justify-start items-start gap-2">
-              <Skeleton className="size-[30px] shrink-0 rounded-md" />
+              <Skeleton className="size-7.5 shrink-0 rounded-md" />
               <div className="flex flex-col items-start gap-1 max-w-[86%]">
                 <Skeleton className="h-3 w-20 rounded mb-0.5" />
                 <Skeleton className="h-9 w-56 rounded-[1.05rem]" />
@@ -559,7 +592,7 @@ export function AgentChatView({
         {/* Presence line + input — mirror the real layout exactly so nothing
             shifts on load: presence row (h-5 + mb-2) above, then the composer
             row of [overflow button][pill][symmetric spacer]. */}
-        <div className="relative z-10 px-3 md:px-5 pt-3 pb-5 md:pb-6">
+        <div data-keyboard-offset className="relative z-10 px-3 md:px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:pb-6">
           <div className="mx-auto max-w-3xl">
             <div className="h-5 px-1 mb-2 flex items-center">
               <Skeleton className="h-3.5 w-28 rounded" />
@@ -675,9 +708,8 @@ export function AgentChatView({
               const pos = groupPositions[idx];
               const isGroupStart =
                 pos === "first" || pos === "solo" || pos === null;
-              // mt-4 between clusters, a roomier mt-1.5 between grouped bubbles
-              // within a cluster (mt-0.5 read too cramped).
-              const spacing = idx === 0 ? "" : isGroupStart ? "mt-4" : "mt-1.5";
+              // mt-6 between clusters, mt-1.5 between grouped bubbles within a cluster.
+              const spacing = idx === 0 ? "" : isGroupStart ? "mt-6" : "mt-1.5";
 
               if (item.kind === "nap") {
                 return (
@@ -749,6 +781,7 @@ export function AgentChatView({
                     agentAvatarConfig={agentAvatarConfig}
                     isSendFailed={failedSends.has(msg.id)}
                     onRetrySend={handleRetrySend}
+                    onQuote={handleQuoteMessage}
                   />
                 </div>
               );
@@ -779,7 +812,7 @@ export function AgentChatView({
       </div>
 
       {/* Input */}
-      <div className="relative z-10 px-3 md:px-5 pt-3 pb-5 md:pb-6">
+      <div data-keyboard-offset className="relative z-10 px-3 md:px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:pb-6">
         <div className="mx-auto max-w-3xl relative">
           {/* Social presence line — "{Name} is typing…" while this conversation
               has a live task (dispatched / queued / running), else nothing. */}
@@ -802,7 +835,7 @@ export function AgentChatView({
                     />
                   }
                 >
-                  <MoreHorizontal className="size-4" />
+                  <MenuToggleIcon open={menuOpen} />
                 </PopoverTrigger>
                 <PopoverContent
                   side="top"
@@ -849,6 +882,39 @@ export function AgentChatView({
                           : `${agentName} is well-rested and ready to go`}
                     </TooltipContent>
                   </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={(props) => (
+                        <span
+                          {...props}
+                          className={cn("inline-flex", props.className)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setMenuOpen(false);
+                              handleStop();
+                            }}
+                            disabled={stopping || !isTaskActive}
+                            className="w-full justify-start gap-2 rounded-md text-muted-foreground hover:text-foreground"
+                          >
+                            {stopping ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Square className="size-3.5" />
+                            )}
+                            <span className="text-xs">Stop</span>
+                          </Button>
+                        </span>
+                      )}
+                    />
+                    <TooltipContent side="right">
+                      {isTaskActive
+                        ? "Stop the running task"
+                        : "No task running"}
+                    </TooltipContent>
+                  </Tooltip>
                 </PopoverContent>
               </Popover>
             )}
@@ -858,7 +924,7 @@ export function AgentChatView({
               className={cn(
                 "relative flex-1 min-w-0 flex flex-col rounded-3xl border border-border/50 bg-background/90 transition-[border-radius] duration-200",
                 "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
-                (isMultiLine || quotedText || slashCommand.activeSkill) &&
+                (isMultiLine || quotedMessage || slashCommand.activeSkill) &&
                 "rounded-2xl",
                 sending && "opacity-50",
                 dragging && "border-ring ring-3 ring-ring/50",
@@ -872,7 +938,7 @@ export function AgentChatView({
                 <div
                   className={cn(
                     "absolute inset-0 z-10 flex items-center justify-center bg-background/80 border-2 border-dashed border-ring pointer-events-none",
-                    isMultiLine || quotedText || slashCommand.activeSkill
+                    isMultiLine || quotedMessage || slashCommand.activeSkill
                       ? "rounded-2xl"
                       : "rounded-3xl",
                   )}
@@ -906,18 +972,17 @@ export function AgentChatView({
                   </button>
                 </div>
               )}
-              {quotedText && (
+              {quotedMessage && (
                 <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-1 border-b border-border/50">
                   <div className="flex-1 min-w-0 flex items-start gap-2">
                     <MessageSquareQuote className="size-3.5 shrink-0 mt-0.5 text-muted-foreground" />
                     <p className="text-xs text-muted-foreground truncate">
-                      {quotedText.slice(0, 120)}
-                      {quotedText.length > 120 ? "..." : ""}
+                      {quotedMessage.excerpt}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setQuotedText(null)}
+                    onClick={() => setQuotedMessage(null)}
                     className="shrink-0 p-0.5 rounded-sm hover:bg-muted-foreground/20 transition-colors text-muted-foreground"
                   >
                     <X className="size-3.5" />
@@ -1056,9 +1121,10 @@ export function AgentChatView({
               </div>
             </div>
             {/* Symmetric spacer: balances the leading overflow button so the
-                pill stays horizontally centered under the messages column. */}
+                pill stays horizontally centered under the messages column.
+                Hidden on mobile where the pill fills full width. */}
             {!targetConvId && (
-              <div className="shrink-0 self-end mb-2.5 size-8" aria-hidden="true" />
+              <div className="hidden md:block shrink-0 self-end mb-2.5 size-8" aria-hidden="true" />
             )}
           </div>
         </div>

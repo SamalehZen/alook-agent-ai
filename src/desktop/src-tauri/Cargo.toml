@@ -1,0 +1,46 @@
+[workspace]
+members = ["plugins/tauri-plugin-push"]
+
+[package]
+name = "alook-desktop"
+version = "0.0.122"
+edition = "2021"
+description = "Alook — Your Personal Company"
+
+[lib]
+name = "alook_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-deep-link = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
+tauri-plugin-shell = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-updater = "2"
+
+[target."cfg(target_os = \"macos\")".dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+objc2-app-kit = { version = "0.3", features = ["NSView", "NSWindow", "NSColor"] }
+
+[target."cfg(any(target_os = \"android\", target_os = \"ios\"))".dependencies]
+tauri-plugin-biometric = "2"
+tauri-plugin-push = { path = "plugins/tauri-plugin-push" }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 3
