@@ -44,7 +44,6 @@ const literata = Literata({
   weight: ["400", "500", "600"],
 });
 
-
 const SITE_URL = "https://alook.ai";
 const OG_IMAGE_URL = "/og?title=Your Personal Company";
 

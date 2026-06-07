@@ -11,6 +11,7 @@ import { agentToResponse, workspaceToResponse, agentLinkToResponse } from "@/lib
 import { randomConfig, serializeAvatarConfig } from "@/components/avatar";
 import { TaskService } from "@/lib/services/task";
 import { invalidate, cached, cacheKeys } from "@/lib/cache";
+import { ensureAgentEmailRoute } from "@/lib/cloudflare-email-routing";
 
 function slugify(name: string): string {
   return name
@@ -146,6 +147,14 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
 
     if (ctx.email) {
       await queries.whitelist.addWhitelist(db, newAgent.id, ws.workspaceId, ctx.email.toLowerCase());
+    }
+
+    if (newAgent.emailHandle) {
+      try {
+        await ensureAgentEmailRoute(env as Env, newAgent.emailHandle);
+      } catch {
+        // Best-effort: studio creation should not fail if Cloudflare routing is temporarily unavailable.
+      }
     }
 
     createdAgents.push({

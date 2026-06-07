@@ -1,4 +1,4 @@
-const DOMAIN = `@${process.env.ALOOK_DOMAIN || "alook.ai"}`
+const DOMAIN = `@${process.env.NEXT_PUBLIC_ALOOK_DOMAIN || process.env.ALOOK_DOMAIN || "alook.ai"}`
 const HANDLE_RE = /^[a-zA-Z0-9-]{3,}$/
 
 const RESERVED_HANDLES = new Set([
