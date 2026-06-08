@@ -159,8 +159,8 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold mt-10 mb-4">Contact Us</h2>
           <p className="text-foreground/80">
             If you have any questions about this Privacy Policy, You can contact us at{" "}
-            <a href="mailto:support@alook.ai" className={linkClass}>
-              support@alook.ai
+            <a href="mailto:support@agents.hypeer.cloud" className={linkClass}>
+              support@agents.hypeer.cloud
             </a>
             .
           </p>

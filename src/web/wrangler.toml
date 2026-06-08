@@ -80,5 +80,6 @@ RUNTIME_MODEL_OPTIONS = '{"claude":["claude-opus-4-6","claude-sonnet-4-6","claud
 MIN_CLI_VERSION = "0.0.122"
 ALOOK_DOMAIN = "agents.hypeer.cloud"
 NEXT_PUBLIC_ALOOK_DOMAIN = "agents.hypeer.cloud"
+NEXT_PUBLIC_ALOOK_SERVER_URL = "https://agents.hypeer.cloud"
 CLOUDFLARE_EMAIL_ROUTING_ZONE_ID = "3ecde475c02f6e95eaed42aaa8af4398"
 CLOUDFLARE_EMAIL_ROUTING_WORKER = "alook-email-worker"

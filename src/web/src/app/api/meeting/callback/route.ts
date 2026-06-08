@@ -68,7 +68,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     const agent = await queries.agent.getAgent(db, meeting.agentId, body.workspaceId)
 
     if (agent?.emailHandle) {
-      const messageId = `<meeting-${body.meetingId}@alook.ai>`
+      const messageId = `<meeting-${body.meetingId}@agents.hypeer.cloud>`
       const existing = await queries.email.getEmailByMessageId(db, messageId, body.workspaceId)
       if (!existing) {
         const fromAddr = toAlookAddress("no-reply")

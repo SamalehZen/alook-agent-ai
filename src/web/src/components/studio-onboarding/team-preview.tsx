@@ -12,9 +12,10 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { ProviderLogo } from "@/components/provider-logo";
-import { toAlookAddress } from "@alook/shared";
 import type { AgentRuntime as Runtime } from "@alook/shared";
 import type { MemberRole } from "./scenario-presets";
+
+const ALOOK_EMAIL_DOMAIN = process.env.NEXT_PUBLIC_ALOOK_DOMAIN || "agents.hypeer.cloud";
 
 export interface TeamMember {
   name: string;
@@ -86,7 +87,7 @@ export function TeamPreview({
               </div>
               {/* Email */}
               <p className="text-[10px] text-muted-foreground/70 font-mono truncate">
-                {toAlookAddress(m.emailHandle || m.name.toLowerCase())}
+                {m.emailHandle || m.name.toLowerCase()}@{ALOOK_EMAIL_DOMAIN}
               </p>
               {/* Description — flex-1 to push runtime picker to bottom */}
               <p className="text-[11px] text-muted-foreground leading-snug flex-1">

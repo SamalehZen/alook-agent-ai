@@ -162,7 +162,7 @@ export default function RootLayout({
                 logo: `${SITE_URL}/alook.svg`,
                 contactPoint: {
                   "@type": "ContactPoint",
-                  email: "support@alook.ai",
+                  email: "support@agents.hypeer.cloud",
                   contactType: "customer support",
                 },
               },
