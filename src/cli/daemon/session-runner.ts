@@ -137,7 +137,7 @@ export async function downloadAttachments(
   attachmentIds: string[],
 ): Promise<Attachment[]> {
   const dir = path.join(ATTACHMENTS_BASE, taskId);
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, { recursive: true, mode: 0o700 });
 
   const attachments: Attachment[] = [];
   for (const artId of attachmentIds) {
