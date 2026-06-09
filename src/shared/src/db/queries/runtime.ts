@@ -42,6 +42,43 @@ export async function upsertAgentRuntime(
   return rows[0]!;
 }
 
+export async function ensureManagedAgentRuntime(
+  db: Database,
+  workspaceId: string
+) {
+  const daemonId = `managed_${workspaceId}`;
+  await db
+    .insert(machine)
+    .values({
+      daemonId,
+      workspaceId,
+      deviceInfo: "Alook managed runtime",
+      lastSeenAt: null,
+    })
+    .onConflictDoUpdate({
+      target: [machine.workspaceId, machine.daemonId],
+      set: {
+        deviceInfo: "Alook managed runtime",
+        updatedAt: new Date().toISOString(),
+      },
+    });
+
+  const runtime = await upsertAgentRuntime(db, {
+    workspaceId,
+    daemonId,
+    runtimeMode: "managed",
+    provider: "opencode",
+    deviceInfo: "Alook managed runtime",
+    metadata: { managed: true, supervisor: "runtime-manager" },
+  });
+  return {
+    ...runtime,
+    machineLastSeenAt: null,
+    pendingUpdateVersion: null,
+    pendingRescan: false,
+  };
+}
+
 export async function listAgentRuntimes(db: Database, workspaceId: string) {
   return db
     .select({
@@ -68,6 +105,29 @@ export async function listAgentRuntimes(db: Database, workspaceId: string) {
     )
     .where(eq(agentRuntime.workspaceId, workspaceId))
     .orderBy(asc(agentRuntime.createdAt));
+}
+
+export async function listManagedAgentRuntimes(db: Database) {
+  return db
+    .select({
+      id: agentRuntime.id,
+      workspaceId: agentRuntime.workspaceId,
+      daemonId: agentRuntime.daemonId,
+      runtimeMode: agentRuntime.runtimeMode,
+      provider: agentRuntime.provider,
+      deviceInfo: agentRuntime.deviceInfo,
+      metadata: agentRuntime.metadata,
+      machineLastSeenAt: machine.lastSeenAt,
+    })
+    .from(agentRuntime)
+    .leftJoin(
+      machine,
+      and(
+        eq(machine.daemonId, agentRuntime.daemonId),
+        eq(machine.workspaceId, agentRuntime.workspaceId)
+      )
+    )
+    .where(eq(agentRuntime.runtimeMode, "managed"));
 }
 
 export async function getAgentRuntime(db: Database, id: string) {

@@ -20,7 +20,6 @@ export default function CreateAgentPage() {
     agents,
     runtimes,
     handleCreateAgent,
-    getFirstOnlineRuntimeId,
   } = useAgentContext();
 
   const [saving, setSaving] = useState(false);
@@ -58,7 +57,7 @@ export default function CreateAgentPage() {
 
       <AgentCreateForm
         runtimes={runtimes}
-        defaultRuntimeId={getFirstOnlineRuntimeId()}
+        defaultRuntimeId="managed"
         modelOptions={modelOptions}
         guided={agents.length === 0}
         onTourReady={handleTourReady}
