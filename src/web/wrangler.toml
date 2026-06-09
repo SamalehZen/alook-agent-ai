@@ -37,7 +37,7 @@ bucket_name = "alook-next-cache"
 
 [[d1_databases]]
 binding = "NEXT_TAG_CACHE_D1"
-database_id = "f15ea77a-d5e9-460e-926b-532948e3ad1b"
+database_id = "3c7d3b43-458c-474b-a183-348cd16a1cce"
 database_name = "alook-next-tags"
 
 [[durable_objects.bindings]]
@@ -51,7 +51,7 @@ new_sqlite_classes = ["DOQueueHandler"]
 # App bindings
 [[d1_databases]]
 binding = "DB"
-database_id = "1593b87c-d8a8-4cdf-b6c0-c80d94442654"
+database_id = "8bbbae48-27b7-43b6-a250-b1e0c6c71632"
 database_name = "alook-app"
 
 [[r2_buckets]]
@@ -69,12 +69,17 @@ service = "alook-email-worker"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "a3d035bea7bc49d99377b82ec21ce4c1"
+id = "e7f9a1ea67934c58a02cb462d7a976b3"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
-id = "3aaa92b4c2c74185b888977e5552e9bf"
+id = "3221c07597bc4f68b201601ad136b84e"
 
 [vars]
 RUNTIME_MODEL_OPTIONS = '{"claude":["claude-opus-4-6","claude-sonnet-4-6","claude-haiku-4-5"],"codex":["gpt-5.4","gpt-5.3-codex"]}'
 MIN_CLI_VERSION = "0.0.123"
+ALOOK_DOMAIN = "agents.hypeer.cloud"
+NEXT_PUBLIC_ALOOK_DOMAIN = "agents.hypeer.cloud"
+NEXT_PUBLIC_ALOOK_SERVER_URL = "https://agents.hypeer.cloud"
+CLOUDFLARE_EMAIL_ROUTING_ZONE_ID = "3ecde475c02f6e95eaed42aaa8af4398"
+CLOUDFLARE_EMAIL_ROUTING_WORKER = "alook-email-worker"

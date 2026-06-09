@@ -95,6 +95,24 @@ export async function getRegisteredTokenForUser(db: Database, userId: string) {
   return rows[0] ?? null;
 }
 
+export async function getActiveMachineTokenForWorkspace(
+  db: Database,
+  workspaceId: string,
+) {
+  const rows = await db
+    .select()
+    .from(machineToken)
+    .where(
+      and(
+        eq(machineToken.workspaceId, workspaceId),
+        eq(machineToken.status, "active")
+      )
+    )
+    .orderBy(desc(machineToken.createdAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getLatestTokenForUser(db: Database, userId: string) {
   const rows = await db
     .select({

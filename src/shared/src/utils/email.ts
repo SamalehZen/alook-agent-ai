@@ -1,4 +1,6 @@
-const DOMAIN = `@${process.env.ALOOK_DOMAIN || "alook.ai"}`
+function domain() {
+  return `@${process.env.NEXT_PUBLIC_ALOOK_DOMAIN || process.env.ALOOK_DOMAIN || "alook.ai"}`
+}
 const HANDLE_RE = /^[a-zA-Z0-9-]{3,}$/
 
 const RESERVED_HANDLES = new Set([
@@ -19,6 +21,6 @@ const RESERVED_HANDLES = new Set([
   "alook",
 ])
 
-export function parseEmailHandle(a: string) { return a.endsWith(DOMAIN) ? a.slice(0, -DOMAIN.length) : "" }
-export function toAlookAddress(h: string) { return `${h}${DOMAIN}` }
+export function parseEmailHandle(a: string) { const d = domain(); return a.endsWith(d) ? a.slice(0, -d.length) : "" }
+export function toAlookAddress(h: string) { return `${h}${domain()}` }
 export function isValidHandle(h: string) { return HANDLE_RE.test(h) && !RESERVED_HANDLES.has(h.toLowerCase()) }

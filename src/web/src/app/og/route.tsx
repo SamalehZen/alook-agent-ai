@@ -21,14 +21,7 @@ async function loadFont(): Promise<ArrayBuffer | null> {
 function TypewriterIllustration() {
   const keyRows = [9, 7, 9];
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-      }}
-    >
-      {/* Paper */}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div
         style={{
           display: "flex",
@@ -51,7 +44,7 @@ function TypewriterIllustration() {
           }}
         >
           <div style={{ display: "flex", fontSize: 11, color: "#8a7e6e", marginBottom: 4 }}>
-            From: jarvis@alook.ai
+            From: jarvis@agents.hypeer.cloud
           </div>
           <div style={{ display: "flex", fontSize: 11, color: "#8a7e6e", marginBottom: 4 }}>
             To: you@email.com
@@ -65,18 +58,8 @@ function TypewriterIllustration() {
         </div>
       </div>
 
-      {/* Roller */}
-      <div
-        style={{
-          display: "flex",
-          width: 280,
-          height: 14,
-          background: "#2a231a",
-          borderRadius: 7,
-        }}
-      />
+      <div style={{ display: "flex", width: 280, height: 14, background: "#2a231a", borderRadius: 7 }} />
 
-      {/* Body */}
       <div
         style={{
           display: "flex",
@@ -89,22 +72,9 @@ function TypewriterIllustration() {
           marginTop: -4,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            marginTop: 8,
-          }}
-        >
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 8 }}>
           {keyRows.map((count, ri) => (
-            <div
-              key={ri}
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                marginBottom: 8,
-              }}
-            >
+            <div key={ri} style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
               {Array.from({ length: count }).map((_, ki) => (
                 <div
                   key={ki}
@@ -145,7 +115,6 @@ export async function GET(request: NextRequest) {
             fontFamily: '"DM Sans"',
           }}
         >
-          {/* Left side */}
           <div
             style={{
               display: "flex",
@@ -156,9 +125,7 @@ export async function GET(request: NextRequest) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
-              <span style={{ fontSize: 32, fontWeight: 600, color: "#3d3428" }}>
-                alook.ai
-              </span>
+              <span style={{ fontSize: 32, fontWeight: 600, color: "#3d3428" }}>agents.hypeer.cloud</span>
             </div>
             <div style={{ display: "flex", fontSize: 52, fontWeight: 600, color: "#2a231a", lineHeight: 1.15 }}>
               {title}
@@ -168,15 +135,7 @@ export async function GET(request: NextRequest) {
             </div>
           </div>
 
-          {/* Right side — typewriter */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 380,
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 380 }}>
             <TypewriterIllustration />
           </div>
         </div>
@@ -186,15 +145,15 @@ export async function GET(request: NextRequest) {
         height: 630,
         ...(fontData
           ? {
-            fonts: [
-              {
-                name: "DM Sans",
-                data: fontData,
-                weight: 600,
-                style: "normal" as const,
-              },
-            ],
-          }
+              fonts: [
+                {
+                  name: "DM Sans",
+                  data: fontData,
+                  weight: 600,
+                  style: "normal" as const,
+                },
+              ],
+            }
           : {}),
       },
     );

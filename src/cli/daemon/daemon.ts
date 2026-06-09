@@ -308,6 +308,7 @@ export async function startDaemon(
     const runtimes = providers.map((p) => ({
       type: p.type,
       version: p.version,
+      ...(config.runtimeMode ? { runtime_mode: config.runtimeMode } : {}),
     }));
 
     log.info(`Registering workspace ${ws.id} (${ws.name ?? "unnamed"}) with ${runtimes.length} runtime(s)...`);
@@ -414,7 +415,11 @@ export async function startDaemon(
     }
 
     log.info(`Workspace ${workspaceId} bound — registering...`);
-    const runtimes = providers.map((p) => ({ type: p.type, version: p.version }));
+    const runtimes = providers.map((p) => ({
+      type: p.type,
+      version: p.version,
+      ...(config.runtimeMode ? { runtime_mode: config.runtimeMode } : {}),
+    }));
     try {
       const resp = await client.register(token, {
         workspace_id: workspaceId,

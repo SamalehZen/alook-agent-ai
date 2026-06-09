@@ -251,15 +251,13 @@ export function StudioOnboardingClient({
 
   // Auto-assign first available runtime when runtimes load/change
   useEffect(() => {
-    const firstAvailable = availableRuntimes[0]?.id;
-    if (!firstAvailable) return;
     setMembers((prev) => {
       if (prev.length === 0) return prev;
       const needsUpdate = prev.some((m) => !m.runtimeId);
       if (!needsUpdate) return prev;
-      return prev.map((m) => m.runtimeId ? m : { ...m, runtimeId: firstAvailable });
+      return prev.map((m) => m.runtimeId ? m : { ...m, runtimeId: "managed" });
     });
-  }, [availableRuntimes]);
+  }, []);
 
   const resolveHandles = useCallback(async (memberNames: string[]) => {
     try {
@@ -280,7 +278,7 @@ export function StudioOnboardingClient({
     if (!initialTemplate || loadingRuntimes) return;
     if (members.length > 0) return;
     const generated = shuffleMembers(initialTemplate.members.length);
-    const defaultRuntimeId = availableRuntimes[0]?.id || "";
+    const defaultRuntimeId = "managed";
     const newMembers = initialTemplate.members.map((m, i) => ({
       name: generated[i].name,
       role: m.role,
@@ -308,7 +306,7 @@ export function StudioOnboardingClient({
     setScenarioId(id);
     const preset = SCENARIO_PRESETS.find((s) => s.id === id)!;
     const generated = shuffleMembers(preset.members.length);
-    const defaultRuntimeId = availableRuntimes[0]?.id || "";
+    const defaultRuntimeId = "managed";
     const newMembers = preset.members.map((m, i) => ({
       name: generated[i].name,
       role: m.role,
@@ -459,7 +457,7 @@ export function StudioOnboardingClient({
           });
         }
         if (resolvedMembers.some((m) => !m.runtimeId || m.runtimeId.startsWith("temp_"))) {
-          toast.error("Waiting for runtime — please ensure the daemon is running");
+          toast.error("Waiting for runtime");
           setCreating(false);
           return;
         }
@@ -524,7 +522,7 @@ export function StudioOnboardingClient({
     members.length > 0 &&
     (isTauriDesktop || isNewWorkspace || members.every((m) => m.runtimeId)) &&
     nameValid &&
-    (hasOnlineRuntime || (machineRegistered && daemonOnline && runtimes.length > 0) || isTauriDesktop);
+    true;
 
   // Page 1: Scenario selection
   if (!scenarioId) {

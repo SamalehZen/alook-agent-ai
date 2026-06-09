@@ -80,6 +80,14 @@ export interface DaemonConfig {
   deviceName: string;
   workspacesRoot: string;
   cliVersion: string;
+  /**
+   * Runtime mode advertised to the server on register (e.g. "managed").
+   * Empty string falls back to the server default ("local"). Set by the
+   * runtime-manager supervisor via ALOOK_RUNTIME_MODE so managed daemons keep
+   * their `agent_runtime.runtime_mode = "managed"` instead of being flipped to
+   * "local" on re-register.
+   */
+  runtimeMode: string;
 }
 
 export function loadDaemonConfig(profile?: string): DaemonConfig {
@@ -118,6 +126,7 @@ export function loadDaemonConfig(profile?: string): DaemonConfig {
     deviceName: process.env.ALOOK_DAEMON_DEVICE_NAME || h,
     workspacesRoot,
     cliVersion: getCurrentVersion(),
+    runtimeMode: process.env.ALOOK_RUNTIME_MODE || "",
   };
 }
 

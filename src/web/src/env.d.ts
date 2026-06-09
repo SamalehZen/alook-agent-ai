@@ -21,6 +21,11 @@ declare namespace Cloudflare {
     AUTH_OTP_RATE_LIMIT_WINDOW_SEC?: string
     RUNTIME_MODEL_OPTIONS?: string
     MIN_CLI_VERSION?: string
+    ALOOK_DOMAIN?: string
+    CLOUDFLARE_EMAIL_ROUTING_TOKEN?: string
+    CLOUDFLARE_EMAIL_ROUTING_ZONE_ID?: string
+    CLOUDFLARE_EMAIL_ROUTING_WORKER?: string
+    RUNTIME_MANAGER_SECRET?: string
     DEVICE_CLIENT_IDS?: string
     NODE_ENV?: string
   }

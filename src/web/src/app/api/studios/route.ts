@@ -11,6 +11,7 @@ import { agentToResponse, workspaceToResponse, agentLinkToResponse } from "@/lib
 import { randomConfig, serializeAvatarConfig } from "@/components/avatar";
 import { TaskService } from "@/lib/services/task";
 import { invalidate, cached, cacheKeys } from "@/lib/cache";
+import { ensureAgentEmailRoute } from "@/lib/cloudflare-email-routing";
 
 function slugify(name: string): string {
   return name
@@ -54,10 +55,14 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   const [body, valErr] = await parseBody(req, CreateStudioRequestSchema);
   if (valErr) return valErr;
 
+  const managedRuntime = body.members.some((m) => m.runtime_id === "managed")
+    ? await queries.runtime.ensureManagedAgentRuntime(db, ws.workspaceId)
+    : null;
   const runtimeIds = [...new Set(body.members.map((m) => m.runtime_id))];
-  const runtimes = await queries.runtime.getAgentRuntimesForWorkspace(db, runtimeIds, ws.workspaceId);
+  const concreteRuntimeIds = runtimeIds.map((id) => id === "managed" ? managedRuntime!.id : id);
+  const runtimes = await queries.runtime.getAgentRuntimesForWorkspace(db, concreteRuntimeIds, ws.workspaceId);
   const runtimeCache = new Map(runtimes.map((r) => [r.id, r]));
-  for (const rid of runtimeIds) {
+  for (const rid of concreteRuntimeIds) {
     if (!runtimeCache.has(rid)) {
       return writeError(`runtime ${rid} not found in workspace`, 404);
     }
@@ -127,14 +132,15 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
       ? { ...(typeof rc.model === "string" ? { model: rc.model } : {}) }
       : null;
 
-    const runtime = runtimeCache.get(member.runtime_id);
+    const runtimeId = member.runtime_id === "managed" ? managedRuntime!.id : member.runtime_id;
+    const runtime = runtimeCache.get(runtimeId);
 
     const newAgent = await queries.agent.createAgent(db, {
       workspaceId: ws.workspaceId,
       name: agentName,
       description: member.description || "",
       instructions: member.instructions || "",
-      runtimeId: member.runtime_id,
+      runtimeId,
       runtimeMode: runtime?.runtimeMode ?? "local",
       runtimeConfig: sanitizedRc,
       visibility: "private",
@@ -146,6 +152,14 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
 
     if (ctx.email) {
       await queries.whitelist.addWhitelist(db, newAgent.id, ws.workspaceId, ctx.email.toLowerCase());
+    }
+
+    if (newAgent.emailHandle) {
+      try {
+        await ensureAgentEmailRoute(env as Env, newAgent.emailHandle);
+      } catch {
+        // Best-effort: studio creation should not fail if Cloudflare routing is temporarily unavailable.
+      }
     }
 
     createdAgents.push({
@@ -204,7 +218,10 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   }
 
   // Enqueue welcome email for leader only
-  const leaderRuntime = runtimeCache.get(body.members.find((m) => m.role === "leader")!.runtime_id);
+  const leaderRuntimeId = body.members.find((m) => m.role === "leader")!.runtime_id === "managed"
+    ? managedRuntime!.id
+    : body.members.find((m) => m.role === "leader")!.runtime_id;
+  const leaderRuntime = runtimeCache.get(leaderRuntimeId);
 
   if (leaderAgent.emailHandle && ctx.email && leaderRuntime && isOnline(leaderRuntime.machineLastSeenAt)) {
     try {

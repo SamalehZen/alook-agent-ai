@@ -496,7 +496,7 @@ export const CreateAgentRequestSchema = z.object({
   name: z.string().min(1, "name is required"),
   description: z.string().optional().default(""),
   instructions: z.string().optional().default(""),
-  runtime_id: z.string().min(1, "runtime_id is required"),
+  runtime_id: z.string().min(1).optional().default("managed"),
   runtime_config: RuntimeConfigSchema,
   max_concurrent_tasks: z.number().int().optional(),
   email_handle: z.string().optional(),
@@ -770,7 +770,7 @@ export type SkillSyncRequest = z.infer<typeof SkillSyncRequestSchema>;
 export const StudioMemberSchema = z.object({
   name: z.string().optional(),
   role: z.enum(["leader", "researcher", "engineer", "assistant"]),
-  runtime_id: z.string().min(1, "runtime_id is required"),
+  runtime_id: z.string().min(1).optional().default("managed"),
   runtime_config: z.object({ model: z.string().max(100).optional() }).passthrough().optional(),
   description: z.string().optional().default(""),
   instructions: z.string().optional().default(""),

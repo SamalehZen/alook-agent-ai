@@ -9,6 +9,7 @@ import { agentToResponse } from "@/lib/api/responses";
 import { TaskService } from "@/lib/services/task";
 import { invalidate, cached, cacheKeys } from "@/lib/cache";
 import { filterVisibleAgents } from "@/lib/agent-visibility";
+import { ensureAgentEmailRoute } from "@/lib/cloudflare-email-routing";
 
 export const GET = withAuth(async (req, ctx) => {
   const ws = await withWorkspaceMember(req, ctx);
@@ -36,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   if (valErr) return valErr;
 
   const name = body.name.trim();
-  const runtimeId = body.runtime_id;
+  const requestedRuntimeId = body.runtime_id;
 
   let maxConcurrentTasks = body.max_concurrent_tasks || 0;
   if (maxConcurrentTasks <= 0) maxConcurrentTasks = 6;
@@ -52,14 +53,18 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     }
   }
 
-  const runtime = await queries.runtime.getAgentRuntimeForWorkspace(
-    db,
-    runtimeId,
-    ws.workspaceId
-  );
+  const runtime = requestedRuntimeId === "managed"
+    ? await queries.runtime.ensureManagedAgentRuntime(db, ws.workspaceId)
+    : await queries.runtime.getAgentRuntimeForWorkspace(
+        db,
+        requestedRuntimeId,
+        ws.workspaceId
+      );
   if (!runtime) {
     return writeError("runtime not found in workspace", 404);
   }
+
+  const runtimeId = runtime.id;
 
   const rc = body.runtime_config;
   const sanitizedRc: Record<string, unknown> | null = rc
@@ -83,6 +88,14 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
 
   if (emailHandle && ctx.email) {
     await queries.whitelist.addWhitelist(db, newAgent.id, ws.workspaceId, ctx.email.toLowerCase());
+  }
+
+  if (newAgent.emailHandle) {
+    try {
+      await ensureAgentEmailRoute(env as Env, newAgent.emailHandle);
+    } catch {
+      // Best-effort: agent creation should not fail if Cloudflare routing is temporarily unavailable.
+    }
   }
 
   await Promise.all([

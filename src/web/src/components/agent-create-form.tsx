@@ -96,11 +96,10 @@ async function runTour() {
         },
       },
       {
-        element: "#agent-runtime-select",
-        disableActiveInteraction: false,
+        element: "#agent-handle",
         popover: {
-          title: "Choose a runtime",
-          description: "Select which machine and provider will run this agent.",
+          title: "Set the email address",
+          description: "Alook will run the agent automatically after creation.",
           side: "bottom" as const,
           align: "start" as const,
         },
@@ -151,6 +150,7 @@ export function AgentCreateForm({
   }, []);
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId);
+  const useManagedRuntime = runtimeId === "managed";
   const providerModels =
     selectedRuntime && modelOptions
       ? (modelOptions[selectedRuntime.provider] ?? [])
@@ -230,10 +230,10 @@ export function AgentCreateForm({
           setModel={setModel}
           runtimeId={runtimeId}
           setRuntimeId={updateRuntimeId}
-          runtimes={runtimes}
+          runtimes={useManagedRuntime ? [] : runtimes}
           providerModels={providerModels}
           errors={fieldErrors}
-          runtimeAsRadio
+          runtimeAsRadio={!useManagedRuntime}
           onShuffle={shuffleName}
           emailHandleSlot={
             <EmailHandleField

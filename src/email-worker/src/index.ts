@@ -159,7 +159,7 @@ export default {
     // domain: @alook.ai for the CF path, the custom-account domain for the SMTP path.
     const fromDomain = useCustomSmtp && customAccount
       ? customAccount.emailAddress.split("@").pop()
-      : "alook.ai"
+      : process.env.ALOOK_DOMAIN || "alook.ai"
     const outMessageId = `<${nanoid()}@${fromDomain}>`
 
     // Build the raw MIME once — used both as the wire message (CF path) and as the
@@ -226,7 +226,19 @@ export default {
       // Send the raw MIME so the wire Message-ID (and threading headers) are the ones
       // we control. The CF structured builder has no reliable Message-ID field — its
       // MTA assigns its own — so we use the raw-MIME overload instead.
-      await env.SEND_EMAIL.send(new EmailMessage(fromAddress, body.to, rawMime))
+      try {
+        await env.SEND_EMAIL.send(new EmailMessage(fromAddress, body.to, rawMime))
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        log.error("Cloudflare Email Routing send failed", {
+          error: msg,
+          agentId: body.agentId,
+          workspaceId: body.workspaceId,
+          from: fromAddress,
+          to: body.to,
+        })
+        return Response.json({ error: `Cloudflare Email Routing send failed: ${msg}` }, { status: 502 })
+      }
     }
 
     // Store the SAME MIME archive in R2 (wire id == archived id).
