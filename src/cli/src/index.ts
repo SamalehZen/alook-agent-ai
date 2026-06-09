@@ -13,6 +13,7 @@ import { versionCommand } from "../commands/version.js";
 import { updateCommand } from "../commands/update.js";
 import { syncCommand } from "../commands/sync.js";
 import { workspaceCommand } from "../commands/workspace.js";
+import { runtimeManagerCommand } from "../commands/runtime-manager.js";
 
 const program = new Command();
 
@@ -35,5 +36,6 @@ program.addCommand(versionCommand());
 program.addCommand(updateCommand());
 program.addCommand(syncCommand());
 program.addCommand(workspaceCommand());
+program.addCommand(runtimeManagerCommand());
 
 program.parse();
