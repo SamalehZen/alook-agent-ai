@@ -561,6 +561,29 @@ describe("POST /send/agent", () => {
     expect(body).toContain("Content-Type: text/html; charset=utf-8")
   })
 
+  it("returns the Cloudflare send_email error when external delivery fails", async () => {
+    mockGetAgent.mockResolvedValue({ id: "agent-1", workspaceId: "ws-1", emailHandle: "jarvis" })
+    const { env, send, put } = agentSendEnv()
+    send.mockRejectedValueOnce(new Error("destination address is not verified"))
+
+    const res = await handler.fetch(
+      makeAgentSendRequest({
+        agentId: "agent-1",
+        workspaceId: "ws-1",
+        to: "user@gmail.com",
+        subject: "Hello",
+        htmlBody: "<p>Hi there</p>",
+      }),
+      env,
+    )
+
+    expect(res.status).toBe(502)
+    const json = await res.json() as { error: string }
+    expect(json.error).toContain("Cloudflare Email Routing send failed")
+    expect(json.error).toContain("destination address is not verified")
+    expect(put).not.toHaveBeenCalled()
+  })
+
   it("sends agent email with attachments from R2", async () => {
     mockGetAgent.mockResolvedValue({ id: "agent-1", workspaceId: "ws-1", emailHandle: "jarvis" })
     const { env, send, put, bucket } = agentSendEnv()

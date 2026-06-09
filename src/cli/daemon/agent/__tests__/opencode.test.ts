@@ -545,4 +545,17 @@ describe("OpenCodeBackend", () => {
     const result = await session.result;
     expect(result.status).toBe("failed");
   });
+
+  it("zero exit with stderr but no output reports failed", async () => {
+    const session = backend.execute("hello", { cwd: "/tmp" });
+    const mock = getMock();
+
+    mock.stderr.push("Unauthorized - Invalid token\n");
+    await tick();
+    mock.proc.emit("close", 0);
+
+    const result = await session.result;
+    expect(result.status).toBe("failed");
+    expect(result.error).toBe("Unauthorized - Invalid token\n");
+  });
 });
