@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "alook-desktop"
-version = "0.1.0"
+version = "0.0.124"
 dependencies = [
  "objc2",
  "objc2-app-kit",
