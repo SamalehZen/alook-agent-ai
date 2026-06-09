@@ -8,6 +8,7 @@ const mockListAgents = vi.fn();
 const mockCreateAgent = vi.fn();
 const mockGetAgent = vi.fn();
 const mockGetAgentRuntimeForWorkspace = vi.fn();
+const mockEnsureManagedAgentRuntime = vi.fn();
 
 vi.mock("@/lib/db", () => ({ getDb: vi.fn(() => ({})) }));
 
@@ -29,6 +30,7 @@ vi.mock("@alook/shared", async () => {
       },
       runtime: {
         getAgentRuntimeForWorkspace: (...args: unknown[]) => mockGetAgentRuntimeForWorkspace(...args),
+        ensureManagedAgentRuntime: (...args: unknown[]) => mockEnsureManagedAgentRuntime(...args),
       },
     },
   };
@@ -126,7 +128,10 @@ describe("POST /api/agents", () => {
     expect(body.details).toContainEqual(expect.stringContaining("name"));
   });
 
-  it("returns 400 for missing runtime_id", async () => {
+  it("uses a managed runtime when runtime_id is missing", async () => {
+    mockEnsureManagedAgentRuntime.mockResolvedValue({ id: "managed-rt", machineLastSeenAt: null, runtimeMode: "managed" });
+    mockCreateAgent.mockResolvedValue({ id: "a1", name: "Agent" });
+
     const req = new NextRequest("http://localhost/api/agents", {
       method: "POST",
       body: JSON.stringify({ name: "Agent" }),
@@ -134,9 +139,13 @@ describe("POST /api/agents", () => {
     const res = await POST(req, {});
     const body = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(body.error).toBe("validation error");
-    expect(body.details).toContainEqual(expect.stringContaining("runtime_id"));
+    expect(res.status).toBe(201);
+    expect(mockEnsureManagedAgentRuntime).toHaveBeenCalledWith(expect.anything(), "w1");
+    expect(mockCreateAgent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ runtimeId: "managed-rt", runtimeMode: "managed" }),
+    );
+    expect(body).toEqual({ id: "a1", name: "Agent" });
   });
 
   it("returns 404 when runtime not in workspace", async () => {

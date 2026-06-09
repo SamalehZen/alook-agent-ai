@@ -37,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
   if (valErr) return valErr;
 
   const name = body.name.trim();
-  const runtimeId = body.runtime_id;
+  const requestedRuntimeId = body.runtime_id;
 
   let maxConcurrentTasks = body.max_concurrent_tasks || 0;
   if (maxConcurrentTasks <= 0) maxConcurrentTasks = 6;
@@ -53,14 +53,18 @@ export const POST = withAuth(async (req: NextRequest, ctx) => {
     }
   }
 
-  const runtime = await queries.runtime.getAgentRuntimeForWorkspace(
-    db,
-    runtimeId,
-    ws.workspaceId
-  );
+  const runtime = requestedRuntimeId === "managed"
+    ? await queries.runtime.ensureManagedAgentRuntime(db, ws.workspaceId)
+    : await queries.runtime.getAgentRuntimeForWorkspace(
+        db,
+        requestedRuntimeId,
+        ws.workspaceId
+      );
   if (!runtime) {
     return writeError("runtime not found in workspace", 404);
   }
+
+  const runtimeId = runtime.id;
 
   const rc = body.runtime_config;
   const sanitizedRc: Record<string, unknown> | null = rc
