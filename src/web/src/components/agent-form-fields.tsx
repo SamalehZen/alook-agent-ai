@@ -46,6 +46,8 @@ import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
 
+const ALOOK_EMAIL_DOMAIN = process.env.NEXT_PUBLIC_ALOOK_DOMAIN || "agents.hypeer.cloud";
+
 export function nameToHandle(name: string): string {
   return name
     .toLowerCase()
@@ -316,7 +318,7 @@ export function EmailHandleField({
           className="w-full border-0 bg-transparent px-0 py-0.5 text-sm text-foreground shadow-none outline-none placeholder:text-muted-foreground/40 focus-visible:ring-0"
         />
         <span className="shrink-0 text-sm text-muted-foreground/70">
-          @alook.ai
+          @{ALOOK_EMAIL_DOMAIN}
         </span>
       </div>
       {handleError && (
@@ -420,7 +422,7 @@ export function AllowedSendersTab({ agentId }: { agentId: string }) {
         <h3 className="text-sm font-medium">Allowed Senders</h3>
         <p className="text-xs text-muted-foreground mt-1">
           Only emails from these addresses will trigger this agent. Applies to
-          all configured email addresses (alook.ai handle and custom email).
+          all configured email addresses ({ALOOK_EMAIL_DOMAIN} handle and custom email).
         </p>
         {hasSiblingAgents && (
           <p className="text-xs text-muted-foreground/70 mt-1.5 flex items-center gap-1">

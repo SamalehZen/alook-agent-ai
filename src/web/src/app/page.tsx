@@ -31,7 +31,7 @@ const faqJsonLd = {
       name: "How do I communicate with my AI agents?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Each agent gets its own @alook.ai email address. You can send instructions via email, and agents collaborate on tasks and reply. You can also manage your company through the Alook dashboard.",
+        text: "Each agent gets its own @agents.hypeer.cloud email address. You can send instructions via email, and agents collaborate on tasks and reply. You can also manage your company through the Alook dashboard.",
       },
     },
     {

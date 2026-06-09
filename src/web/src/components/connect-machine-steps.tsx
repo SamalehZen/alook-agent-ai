@@ -57,8 +57,17 @@ export function ConnectMachineSteps({
     }
   }, [generatedToken, generatingToken, onGenerateToken]);
 
+  const registerCmd = (() => {
+    const base = `${cliCmd()} register --token ${generatedToken}`;
+    if (typeof window === "undefined" || isDesktopApp || mode !== "production") {
+      return base;
+    }
+    const serverUrl = process.env.NEXT_PUBLIC_ALOOK_SERVER_URL || window.location.origin;
+    return `${base} --server ${serverUrl}`;
+  })();
+
   const copyRegister = () => {
-    navigator.clipboard.writeText(`${cliCmd()} register --token ${generatedToken}`);
+    navigator.clipboard.writeText(registerCmd);
     toast.success("Copied to clipboard");
   };
 
@@ -152,10 +161,7 @@ export function ConnectMachineSteps({
                           />
                         }
                       >
-                        {cliCmd()} register --token{" "}
-                        <span className="text-foreground/70">
-                          {generatedToken}
-                        </span>
+                        {registerCmd}
                       </TooltipTrigger>
                       <TooltipContent>Click to copy</TooltipContent>
                     </Tooltip>

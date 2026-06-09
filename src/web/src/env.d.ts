@@ -25,6 +25,7 @@ declare namespace Cloudflare {
     CLOUDFLARE_EMAIL_ROUTING_TOKEN?: string
     CLOUDFLARE_EMAIL_ROUTING_ZONE_ID?: string
     CLOUDFLARE_EMAIL_ROUTING_WORKER?: string
+    RUNTIME_MANAGER_SECRET?: string
     DEVICE_CLIENT_IDS?: string
     NODE_ENV?: string
   }

@@ -44,7 +44,7 @@ function TypewriterIllustration() {
           }}
         >
           <div style={{ display: "flex", fontSize: 11, color: "#8a7e6e", marginBottom: 4 }}>
-            From: jarvis@alook.ai
+            From: jarvis@agents.hypeer.cloud
           </div>
           <div style={{ display: "flex", fontSize: 11, color: "#8a7e6e", marginBottom: 4 }}>
             To: you@email.com
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
-              <span style={{ fontSize: 32, fontWeight: 600, color: "#3d3428" }}>alook.ai</span>
+              <span style={{ fontSize: 32, fontWeight: 600, color: "#3d3428" }}>agents.hypeer.cloud</span>
             </div>
             <div style={{ display: "flex", fontSize: 52, fontWeight: 600, color: "#2a231a", lineHeight: 1.15 }}>
               {title}

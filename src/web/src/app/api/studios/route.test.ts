@@ -14,6 +14,7 @@ const mockGetAgentByHandle = vi.fn();
 const mockListAgents = vi.fn();
 const mockGetAgentRuntimeForWorkspace = vi.fn();
 const mockGetAgentRuntimesForWorkspace = vi.fn();
+const mockEnsureManagedAgentRuntime = vi.fn();
 const mockGetWorkspace = vi.fn();
 const mockGetWorkspaceBySlug = vi.fn();
 const mockUpdateWorkspace = vi.fn();
@@ -54,6 +55,7 @@ vi.mock("@alook/shared", async () => {
       runtime: {
         getAgentRuntimeForWorkspace: (...args: unknown[]) => mockGetAgentRuntimeForWorkspace(...args),
         getAgentRuntimesForWorkspace: (...args: unknown[]) => mockGetAgentRuntimesForWorkspace(...args),
+        ensureManagedAgentRuntime: (...args: unknown[]) => mockEnsureManagedAgentRuntime(...args),
       },
       workspace: {
         getWorkspace: (...args: unknown[]) => mockGetWorkspace(...args),
@@ -119,6 +121,11 @@ beforeEach(() => {
     runtimeMode: "local",
     machineLastSeenAt: new Date().toISOString(),
   }]);
+  mockEnsureManagedAgentRuntime.mockResolvedValue({
+    id: "managed-rt",
+    runtimeMode: "managed",
+    machineLastSeenAt: null,
+  });
   let agentIdx = 0;
   mockCreateAgent.mockImplementation((_db: any, data: any) => {
     agentIdx++;

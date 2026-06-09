@@ -68,6 +68,7 @@ function postReq(body: unknown) {
 
 describe("POST /api/meeting/callback", () => {
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_ALOOK_DOMAIN = "agents.hypeer.cloud";
     vi.clearAllMocks();
     mockBucketPut.mockResolvedValue(undefined);
     mockSelfRefFetch.mockResolvedValue(new Response(JSON.stringify({ ok: true })));
@@ -111,8 +112,8 @@ describe("POST /api/meeting/callback", () => {
     expect(mimeCall).toBeDefined();
     expect(mimeCall![0]).toBe("emails/test-nanoid-123/raw");
     const mimeContent = mimeCall![1] as string;
-    expect(mimeContent).toContain("From: no-reply@alook.ai");
-    expect(mimeContent).toContain("To: jarvis@alook.ai");
+    expect(mimeContent).toContain("From: no-reply@agents.hypeer.cloud");
+    expect(mimeContent).toContain("To: jarvis@agents.hypeer.cloud");
     expect(mimeContent).toContain("Subject: Meeting completed: Weekly");
     expect(mimeContent).toContain("MIME-Version: 1.0");
     expect(mimeContent).toContain("Content-Type: text/plain; charset=utf-8");
@@ -126,11 +127,11 @@ describe("POST /api/meeting/callback", () => {
       (mockSelfRefFetch.mock.calls[0][1] as RequestInit).body as string
     );
     expect(notifyBody.r2Key).toBe("emails/test-nanoid-123/raw");
-    expect(notifyBody.from).toBe("no-reply@alook.ai");
-    expect(notifyBody.to).toBe("jarvis@alook.ai");
+    expect(notifyBody.from).toBe("no-reply@agents.hypeer.cloud");
+    expect(notifyBody.to).toBe("jarvis@agents.hypeer.cloud");
     expect(notifyBody.subject).toContain("Meeting completed: Weekly");
     expect(notifyBody.isWhitelisted).toBe(true);
-    expect(notifyBody.messageId).toBe("<meeting-ms1@alook.ai>");
+    expect(notifyBody.messageId).toBe("<meeting-ms1@agents.hypeer.cloud>");
   });
 
   it("skips email notify when agent has no emailHandle", async () => {

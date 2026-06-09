@@ -33,7 +33,7 @@ export default function NotFound() {
               >
                 <div className="tw-email-line">
                   <span style={{ color: "var(--landing-text)" }}>From:</span>{" "}
-                  postmaster@alook.ai
+                  postmaster@agents.hypeer.cloud
                 </div>
                 <div className="tw-email-line">
                   <span style={{ color: "var(--landing-text)" }}>To:</span>{" "}
